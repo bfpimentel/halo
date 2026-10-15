@@ -21,19 +21,15 @@ const music = externalSignal("music", { initial: { title: "", artist: "" } });
 
 ## AeroSpace
 
-```tsx
-import { aerospace } from "halo/aerospace";
+Window-manager support is something you build, not a halo module: a trigger from the WM's hooks plus a `hydrate`
+query. The focused workspace:
 
-const spaces = aerospace();
-<Box style={{ flexDirection: "row", gap: 4 }}>
-  {() =>
-    spaces
-      .on(screen)()
-      .map((ws) => (
-        <Text style={{ color: ws.focused ? "#89b4fa" : "#7f849c" }}>{ws.name}</Text>
-      ))
-  }
-</Box>;
+```tsx
+const focused = externalSignal("aerospace.workspace", {
+  hydrate: "aerospace list-workspaces --focused",
+  parse: (payload) => payload.focused ?? payload.stdout?.trim(),
+});
+<Text>{() => `WS ${focused()}`}</Text>;
 ```
 
 Add to `aerospace.toml`:
@@ -44,5 +40,9 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']
 ```
 
-Reference: [`externalSignal`](../reference/halo-signals.html#externalSignal),
-[`halo/aerospace`](../reference/halo-aerospace.html), [CLI](../cli.html).
+For every workspace per display, with focus and emptiness, copy
+[`examples/aerospace/aerospace.ts`](https://github.com/bfpimentel/halo/blob/main/examples/aerospace/aerospace.ts) into
+your config. It maps AeroSpace monitors to halo displays through `ScreenInfo.index`, and the same shape works for yabai
+or any WM with a CLI and change hooks.
+
+Reference: [`externalSignal`](../reference/halo-signals.html#externalSignal), [CLI](../cli.html).

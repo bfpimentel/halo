@@ -1,8 +1,9 @@
-import { screens } from "halo/components";
-import { externalSignal } from "halo/external";
-import { sh } from "halo/host";
-import type { ScreenInfo } from "halo/native";
-import { computed, effect, signal, type Accessor } from "halo/reactive";
+// AeroSpace workspaces as signals, built only on halo's public API: `halo trigger` events from aerospace.toml
+// wake it, `aerospace list-workspaces` supplies the state. Copy it into your config and adapt it; the same
+// shape works for yabai or any WM with a CLI and change hooks.
+
+import { screens, sh, type ScreenInfo } from "halo";
+import { computed, effect, externalSignal, signal, type Accessor } from "halo/signals";
 
 /** An AeroSpace workspace as `aerospace()` reports it. */
 export interface Workspace {
@@ -30,7 +31,7 @@ export interface AeroSpace {
 }
 
 /**
- * AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger (see examples/aerospace).
+ * AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger.
  * Call once per config, at module level or inside a component.
  */
 export function aerospace(options: { command?: string } = {}): AeroSpace {

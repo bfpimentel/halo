@@ -41,7 +41,6 @@ const modules = [
   { file: "index", name: "halo" },
   { file: "signals", name: "halo/signals" },
   { file: "services", name: "halo/services" },
-  { file: "aerospace", name: "halo/aerospace" },
 ];
 const referencePath = (module: string) => `reference/${module.replace("/", "-")}.html`;
 

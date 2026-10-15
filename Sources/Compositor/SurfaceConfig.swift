@@ -103,7 +103,7 @@ public struct ScreenInfo: Sendable, Hashable {
     public var menuBarHeight: CGFloat
     public var notch: CGRect?
     public var scale: CGFloat
-    /// 1-based position in `NSScreen.screens`, which is how tools like AeroSpace refer to displays.
+    /// 1-based position in `NSScreen.screens`, which is how most CLI tools number displays.
     public var index: Int
 
     public init(

@@ -94,7 +94,7 @@ export default () => (
 
 ```tsx
 import { Box, PerScreen, Surface, Text } from "halo";
-import { aerospace } from "halo/aerospace";
+import { aerospace } from "./aerospace"; // examples/aerospace/aerospace.ts, copied in
 
 const spaces = aerospace();
 
@@ -132,6 +132,7 @@ export default () => (
 );
 ```
 
+`aerospace.ts` is plain halo code (`externalSignal` plus `sh`), not a built-in: adapt it, or write one for your WM.
 Point AeroSpace's `exec-on-workspace-change` at `halo trigger aerospace.workspace …`
 ([setup](https://bfpimentel.github.io/halo/guide/external-signals.html#aerospace)). More in
 [`examples/`](examples/README.md).

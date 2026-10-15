@@ -6,7 +6,7 @@
 //   on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']   # optional: keeps "empty" state fresh
 
 import { Box, PerScreen, Surface, Text, type ScreenInfo } from "halo";
-import { aerospace, type Workspace } from "halo/aerospace";
+import { aerospace, type Workspace } from "@/aerospace/aerospace";
 import { clock } from "halo/services";
 
 const surface = "#1e1e2ee0";
