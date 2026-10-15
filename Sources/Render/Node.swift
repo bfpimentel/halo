@@ -176,6 +176,7 @@ public class Node {
             y: layoutFrame.minY + layoutFrame.height * style.originY
         )
         guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return }
+        mirrorLayout(from: previous, timing: timing)
         for (keyPath, from, to) in [
             ("position", NSValue(point: oldPosition), NSValue(point: layer.position)),
             ("bounds", NSValue(rect: oldBounds), NSValue(rect: layer.bounds)),

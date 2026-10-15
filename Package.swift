@@ -13,7 +13,8 @@ let package = Package(
     targets: [
         .target(name: "Compositor"),
         .target(name: "Render", dependencies: [.product(name: "yoga", package: "yoga")]),
-        .target(name: "JSRuntime", dependencies: ["Compositor", "Render"]),
+        .target(name: "Services"),
+        .target(name: "JSRuntime", dependencies: ["Compositor", "Render", "Services"]),
         .target(name: "IPC"),
         .target(name: "HaloHost", dependencies: ["Compositor", "Render", "JSRuntime", "IPC"]),
         .executableTarget(name: "HaloCLI", dependencies: ["HaloHost", "IPC"]),
@@ -21,10 +22,11 @@ let package = Package(
         .testTarget(name: "RenderTests", dependencies: ["Render"]),
         .testTarget(
             name: "JSRuntimeTests",
-            dependencies: ["JSRuntime", "Compositor", "Render"],
+            dependencies: ["JSRuntime", "Compositor", "Render", "Services"],
             exclude: ["Fixtures"]
         ),
         .testTarget(name: "IPCTests", dependencies: ["IPC"]),
         .testTarget(name: "HaloHostTests", dependencies: ["HaloHost", "IPC"]),
+        .testTarget(name: "ServicesTests", dependencies: ["Services"]),
     ]
 )

@@ -61,20 +61,55 @@ public final class Input: Node {
 
     public override var paintsContent: Bool { true }
 
+    /// One full-surface view per animating ancestor, nested outermost → innermost around the field, so the
+    /// ancestors' mirrored animations compose exactly like their layers do (fades multiply, transforms stack).
+    private var wrappers: [(ancestor: ObjectIdentifier, depth: Int, view: NSView)] = []
+
+    /// What gets mounted in the surface: the outermost wrapper, or the field itself.
+    private var mountedView: NSView { wrappers.first?.view ?? field }
+
+    /// The wrapper standing in for `ancestor` (at `depth` from the root), created and nested on first use.
+    func wrapper(for ancestor: Node, depth: Int) -> NSView? {
+        if let existing = wrappers.first(where: { $0.ancestor == ObjectIdentifier(ancestor) }) { return existing.view }
+        guard let host = mountedView.superview else { return nil }
+        let view = WrapperView(frame: host.bounds)
+        view.wantsLayer = true
+        view.autoresizingMask = [.width, .height]
+        let index = wrappers.firstIndex { $0.depth > depth } ?? wrappers.count
+        let parent = index == 0 ? host : wrappers[index - 1].view
+        let child = index < wrappers.count ? wrappers[index].view : field
+        // Re-parenting a focused field ends its editing session; resume it with the same selection.
+        let selection = field.currentEditor()?.selectedRange
+        child.removeFromSuperview()
+        view.addSubview(child)
+        parent.addSubview(view)
+        wrappers.insert((ObjectIdentifier(ancestor), depth, view), at: index)
+        if let selection {
+            field.window?.makeFirstResponder(field)
+            field.currentEditor()?.selectedRange = selection
+        }
+        return view
+    }
+
+    func existingWrapper(for ancestor: Node) -> NSView? {
+        wrappers.first { $0.ancestor == ObjectIdentifier(ancestor) }?.view
+    }
+
     public func focus() {
         field.window?.makeFirstResponder(field)
     }
 
     override func detachNativeViews() {
+        mountedView.removeFromSuperview()
         field.removeFromSuperview()
+        wrappers.removeAll()
         super.detachNativeViews()
     }
-
 
     override func applyFrames() {
         super.applyFrames()
         guard let root = rootOwner else { return }
-        root.attachView?(field)
+        root.attachView?(mountedView)
         let frame = frameInRoot
         let height = lineHeight
         field.frame = CGRect(x: frame.minX, y: frame.minY + (frame.height - height) / 2, width: frame.width, height: height)
@@ -132,5 +167,15 @@ private let measureInput: YGMeasureFunc = { node, width, widthMode, _, _ in
     return MainActor.assumeIsolated {
         let height = Unmanaged<Input>.fromOpaque(input).takeUnretainedValue().lineHeight
         return YGSize(width: widthMode == .undefined ? 120 : width, height: Float(height))
+    }
+}
+
+/// Full-surface and see-through: hit-testing falls through to whatever is under it unless it hits the field.
+private final class WrapperView: NSView {
+    override var isFlipped: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 }

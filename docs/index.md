@@ -10,6 +10,7 @@
 
 - **Native.** Core Animation layers and Yoga flexbox. No browser; ~0% CPU when idle.
 - **Reactive.** Signals update exactly the properties that read them.
+- **Batteries included.** Battery, volume, network, front app, CPU and memory as signals.
 - **Scriptable.** `halo trigger` pushes state from your window manager or any script.
 
 ## Install

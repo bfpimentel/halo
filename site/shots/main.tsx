@@ -1,7 +1,7 @@
 // Widgets for the docs screenshots (scripts/screenshots.sh captures each named surface's window).
 
 import { Box, Image, Surface, Text, screens, type ScreenInfo } from "halo";
-import { clock } from "halo/services";
+import { audio, battery, clock, frontApp, network, system } from "halo/services";
 
 const card = "#1e1e2ef2";
 const foreground = "#cdd6f4";
@@ -137,6 +137,43 @@ function Load() {
   );
 }
 
+function Status() {
+  const percent = (value: number | undefined) =>
+    value === undefined ? "–" : `${Math.round(value * 100)}%`;
+  const chip = (icon: string, text: () => string) => (
+    <Box style={{ flexDirection: "row", align: "center", gap: 5 }}>
+      <Image symbol={icon} size={13} color={foreground} />
+      <Text style={{ fontSize: 12, fontWeight: "medium", color: foreground }}>
+        {text}
+      </Text>
+    </Box>
+  );
+  return (
+    <Box
+      style={{
+        flexDirection: "row",
+        align: "center",
+        gap: 14,
+        padding: [6, 12],
+        background: card,
+        radius: 10,
+      }}
+    >
+      <Box style={{ flexDirection: "row", align: "center", gap: 6 }}>
+        <Image app={() => frontApp.bundleId() ?? ""} size={16} />
+        <Text style={{ fontSize: 12, fontWeight: "semibold", color: foreground }}>
+          {() => frontApp.name() ?? ""}
+        </Text>
+      </Box>
+      {chip("cpu", () => percent(system.cpu()))}
+      {chip("memorychip", () => percent(system.memory()))}
+      {chip("wifi", () => network.type() ?? "–")}
+      {chip("speaker.wave.2.fill", () => percent(audio.volume()))}
+      {chip("battery.100", () => `${battery.percent() ?? "–"}%`)}
+    </Box>
+  );
+}
+
 function Shot(props: {
   name: string;
   screen: ScreenInfo;
@@ -172,6 +209,9 @@ export default () => {
           <Clock />
           <Load />
         </Box>
+      </Shot>
+      <Shot name="status" screen={screen} top={60} left={760}>
+        <Status />
       </Shot>
       <Shot name="hero" screen={screen} top={600} left={60}>
         <Box style={{ gap: 14, padding: 4 }}>

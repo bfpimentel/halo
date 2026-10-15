@@ -81,6 +81,15 @@ enum Bridge {
         let setFrames: @convention(block) (Int, Bool) -> Void = { id, enabled in
             MainActor.assumeIsolated { runtime?.setFrames(id, enabled) }
         }
+        let subscribeService: @convention(block) (String, JSValue, JSValue) -> Int = { name, options, callback in
+            MainActor.assumeIsolated { runtime?.subscribeService(name, options, callback) ?? 0 }
+        }
+        let unsubscribeService: @convention(block) (Int) -> Void = { id in
+            MainActor.assumeIsolated { runtime?.unsubscribeService(id) }
+        }
+        let serviceAction: @convention(block) (String, String, JSValue) -> Bool = { name, action, value in
+            MainActor.assumeIsolated { runtime?.serviceAction(name, action, value) ?? false }
+        }
         let formatDate: @convention(block) (String, Double) -> String = { pattern, ms in
             MainActor.assumeIsolated { runtime?.formatDate(pattern, ms) ?? "" }
         }
@@ -106,6 +115,9 @@ enum Bridge {
         define("animate", animate)
         define("cancelAnimation", cancelAnimation)
         define("setFrames", setFrames)
+        define("subscribeService", subscribeService)
+        define("unsubscribeService", unsubscribeService)
+        define("serviceAction", serviceAction)
         define("formatDate", formatDate)
         context.setObject(native, forKeyedSubscript: "__native" as NSString)
     }

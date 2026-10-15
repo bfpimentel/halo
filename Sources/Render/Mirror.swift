@@ -69,6 +69,35 @@ extension Node {
     /// Replays `animation` on every text field in this subtree. Fields sit above the layer tree, so they don't inherit
     /// this node's animations; each gets the same opacity, plus a transform that moves it the way this node's
     /// transform moves the point under it: `t' = t + (I − R·S)(P − A)` for pivot `P` and field anchor `A`.
+    /// Ancestors above this node; orders the wrappers around a field.
+    var depth: Int {
+        var count = 0
+        var ancestor = parent
+        while let next = ancestor {
+            count += 1
+            ancestor = next.parent
+        }
+        return count
+    }
+
+    /// A layout move of this node (`from` → its new frame) replayed on the fields inside it, as an additive
+    /// translation from the old offset back to zero, so it stacks with any other animation on the wrapper.
+    func mirrorLayout(from previous: CGRect, timing: Timing) {
+        let dx = previous.minX - layoutFrame.minX
+        let dy = previous.minY - layoutFrame.minY
+        guard dx != 0 || dy != 0 else { return }
+        for input in inputsInSubtree() {
+            guard let layer = input.wrapper(for: self, depth: depth)?.layer else { continue }
+            for (axis, offset) in [("x", dx), ("y", dy)] where offset != 0 {
+                let animation = timing.basic("transform.translation.\(axis)")
+                animation.fromValue = offset
+                animation.toValue = 0
+                animation.isAdditive = true
+                layer.add(animation, forKey: "mirror.layout.\(axis)")
+            }
+        }
+    }
+
     func mirror(_ animation: MirroredAnimation, key: String) {
         let inputs = inputsInSubtree()
         guard !inputs.isEmpty, !animation.curves.isEmpty else { return }
@@ -86,8 +115,8 @@ extension Node {
         let pivot = CGPoint(x: frame.minX + frame.width * style.originX, y: frame.minY + frame.height * style.originY)
 
         for input in inputs {
-            guard input.field.superview != nil, let fieldLayer = input.field.layer else { continue }
-            let field = input.field.frame
+            guard let wrapper = input.wrapper(for: self, depth: depth), let fieldLayer = wrapper.layer else { continue }
+            let field = wrapper.frame
             let anchor = CGPoint(x: field.minX + field.width * fieldLayer.anchorPoint.x, y: field.minY + field.height * fieldLayer.anchorPoint.y)
             let offset = CGPoint(x: pivot.x - anchor.x, y: pivot.y - anchor.y)
             var tracks: [(String, [Any])] = []
@@ -134,8 +163,8 @@ extension Node {
 
     func removeMirror(_ key: String) {
         for input in inputsInSubtree() {
-            input.field.layer?.removeAnimation(forKey: "\(key).opacity")
-            input.field.layer?.removeAnimation(forKey: "\(key).transform")
+            input.existingWrapper(for: self)?.layer?.removeAnimation(forKey: "\(key).opacity")
+            input.existingWrapper(for: self)?.layer?.removeAnimation(forKey: "\(key).transform")
         }
     }
 

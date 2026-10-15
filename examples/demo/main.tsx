@@ -1,5 +1,5 @@
 import { Box, Image, PerScreen, Surface, Text, type ScreenInfo } from "halo";
-import { clock } from "halo/services";
+import { battery, clock } from "halo/services";
 import { signal } from "halo/signals";
 import { LoadGraph } from "@/demo/load";
 
@@ -58,6 +58,9 @@ function TopBar(props: { screen: ScreenInfo }) {
         </Box>
         <Box style={{ flexDirection: "row", align: "center", gap: 8 }}>
           <Image symbol="battery.75percent" size={16} color={foreground} />
+          <Text style={{ fontSize: 13, fontWeight: "medium", color: foreground }}>
+            {() => `${battery.percent() ?? "–"}%`}
+          </Text>
           <Text style={{ fontSize: 13, fontWeight: "medium", color: foreground }}>
             {clock.format("EEE d MMM  HH:mm")}
           </Text>

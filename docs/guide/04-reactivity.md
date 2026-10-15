@@ -35,11 +35,12 @@ writes into one update.
 
 ## Getting data
 
-| Helper                   | Use                                                              |
-| ------------------------ | ---------------------------------------------------------------- |
-| `clock.format("HH:mm")`  | Time and date, ticking only as often as the pattern needs.       |
-| `sh("cmd")`, `exec(…)`   | Run a command once; resolves with its output.                    |
-| `poll("cmd", 5000)`      | A signal of a command's output, refreshed on an interval.        |
-| `externalSignal("name")` | State pushed by `halo trigger` ([guide](external-signals.html)). |
+| Helper                                              | Use                                                              |
+| --------------------------------------------------- | ---------------------------------------------------------------- |
+| `clock.format("HH:mm")`                             | Time and date, ticking only as often as the pattern needs.       |
+| `battery`, `audio`, `network`, `frontApp`, `system` | System state ([guide](services.html)).                           |
+| `sh("cmd")`, `exec(…)`                              | Run a command once; resolves with its output.                    |
+| `poll("cmd", 5000)`                                 | A signal of a command's output, refreshed on an interval.        |
+| `externalSignal("name")`                            | State pushed by `halo trigger` ([guide](external-signals.html)). |
 
 Reference: [`halo/signals`](../reference/halo-signals.html), [`halo/services`](../reference/halo-services.html).

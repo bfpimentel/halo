@@ -20,17 +20,17 @@ import Testing
         return (box, input, root)
     }
 
-    /// Where the transform puts the field's anchor, in surface coordinates.
-    private func movedAnchor(_ input: Input, _ transform: CATransform3D) -> CGPoint {
-        let layer = input.field.layer!
-        let frame = input.field.frame
+    /// Where a wrapper transform puts `point` (surface coordinates), applied around the wrapper's anchor.
+    private func moved(_ point: CGPoint, by transform: CATransform3D, in wrapper: NSView) -> CGPoint {
+        let layer = wrapper.layer!
+        let frame = wrapper.frame
         let anchor = CGPoint(x: frame.minX + frame.width * layer.anchorPoint.x, y: frame.minY + frame.height * layer.anchorPoint.y)
-        let affine = CATransform3DGetAffineTransform(transform)
-        return CGPoint(x: anchor.x + affine.tx, y: anchor.y + affine.ty)
+        let local = CGPoint(x: point.x - anchor.x, y: point.y - anchor.y).applying(CATransform3DGetAffineTransform(transform))
+        return CGPoint(x: anchor.x + local.x, y: anchor.y + local.y)
     }
 
-    private func firstTransform(_ input: Input, _ key: String) -> CATransform3D? {
-        let track = input.field.layer?.animation(forKey: "\(key).transform") as? CAKeyframeAnimation
+    private func firstTransform(_ wrapper: NSView?, _ key: String) -> CATransform3D? {
+        let track = wrapper?.layer?.animation(forKey: "\(key).transform") as? CAKeyframeAnimation
         return (track?.values?.first as? NSValue)?.caTransform3DValue
     }
 
@@ -41,30 +41,59 @@ import Testing
         #expect(fieldAnchor.x == 120)
 
         box.play(enter: Transition(values: [.scale: .number(0.5)], timing: Timing(duration: 0.3)))
-        let scaled = try #require(firstTransform(input, "mirror.enter"))
+        let wrapper = try #require(input.existingWrapper(for: box))
+        let scaled = try #require(firstTransform(wrapper, "mirror.enter"))
         let expected = CGPoint(x: pivot.x + 0.5 * (fieldAnchor.x - pivot.x), y: pivot.y + 0.5 * (fieldAnchor.y - pivot.y))
-        #expect(abs(movedAnchor(input, scaled).x - expected.x) < 0.01 && abs(movedAnchor(input, scaled).y - expected.y) < 0.01)
+        let scaledPoint = moved(fieldAnchor, by: scaled, in: wrapper)
+        #expect(abs(scaledPoint.x - expected.x) < 0.01 && abs(scaledPoint.y - expected.y) < 0.01)
 
         box.play(enter: Transition(values: [.rotate: .number(90)], timing: Timing(duration: 0.3)))
-        let rotated = try #require(firstTransform(input, "mirror.enter"))
+        let rotated = try #require(firstTransform(wrapper, "mirror.enter"))
         let offset = CGPoint(x: fieldAnchor.x - pivot.x, y: fieldAnchor.y - pivot.y)
         let turned = CGPoint(x: pivot.x - offset.y, y: pivot.y + offset.x)
-        #expect(abs(movedAnchor(input, rotated).x - turned.x) < 0.01 && abs(movedAnchor(input, rotated).y - turned.y) < 0.01)
+        let rotatedPoint = moved(fieldAnchor, by: rotated, in: wrapper)
+        #expect(abs(rotatedPoint.x - turned.x) < 0.01 && abs(rotatedPoint.y - turned.y) < 0.01)
     }
 
     @Test func transitionsAndKeyframesReachTheField() {
         let (box, input, _) = mount()
         box.transitions = ["opacity": Timing(duration: 0.2)]
         box.style.opacity = 0.3
-        let fade = input.field.layer?.animation(forKey: "mirror.transition.opacity") as? CAKeyframeAnimation
+        let fade = input.existingWrapper(for: box)?.layer?.animation(forKey: "mirror.transition.opacity") as? CAKeyframeAnimation
         #expect((fade?.values?.first as? CGFloat) == 1)
         #expect((fade?.values?.last as? CGFloat).map { abs($0 - 0.3) < 0.001 } == true)
 
         let key = box.animate(Keyframes(tracks: [.translateX: [.number(0), .number(10), .number(0)]], timing: Timing(duration: 0.5), repeatCount: .infinity))
-        let loop = input.field.layer?.animation(forKey: "mirror.\(key).transform") as? CAKeyframeAnimation
+        let loop = input.existingWrapper(for: box)?.layer?.animation(forKey: "mirror.\(key).transform") as? CAKeyframeAnimation
         #expect(loop?.repeatCount == .infinity)
         box.cancelAnimation(key)
-        #expect(input.field.layer?.animation(forKey: "mirror.\(key).transform") == nil)
+        #expect(input.existingWrapper(for: box)?.layer?.animation(forKey: "mirror.\(key).transform") == nil)
+    }
+
+    /// Two animating ancestors each get a wrapper, nested in tree order, so both reach the field.
+    @Test func nestedAncestorsComposeAroundTheField() throws {
+        let (box, input, root) = mount()
+        let container = root.node
+        container.play(enter: Transition(values: [.opacity: .number(0.5)], timing: Timing(duration: 0.3)))
+        box.play(enter: Transition(values: [.opacity: .number(0.5)], timing: Timing(duration: 0.3)))
+        let outer = try #require(input.existingWrapper(for: container))
+        let inner = try #require(input.existingWrapper(for: box))
+        #expect(inner.superview === outer)
+        #expect(input.field.superview === inner)
+        #expect(outer.layer?.animation(forKey: "mirror.enter.opacity") != nil)
+        #expect(inner.layer?.animation(forKey: "mirror.enter.opacity") != nil)
+    }
+
+    @Test func layoutMovesSlideTheFieldFromItsOldPlace() throws {
+        let (box, input, root) = mount()
+        box.transitions = ["layout": Timing(duration: 0.3)]
+        root.node.style.padding = Spacing(top: 50, right: 0, bottom: 0, left: 160)
+        root.layoutNow()
+        let wrapper = try #require(input.existingWrapper(for: box))
+        let slide = wrapper.layer?.animation(forKey: "mirror.layout.x") as? CABasicAnimation
+        #expect(slide?.isAdditive == true)
+        #expect((slide?.fromValue as? CGFloat) == -60)
+        #expect((slide?.toValue as? CGFloat) == 0)
     }
 
     @Test func progressCurvesStartAtZeroAndSettleAtOne() {

@@ -24,6 +24,12 @@ const repo = join(import.meta.dir, "..");
 const docs = join(repo, "docs");
 const out = join(import.meta.dir, "dist");
 const github = "https://github.com/bfpimentel/halo";
+// Inlined so the wordmark follows the page's color scheme (WebKit ignores it inside <img> SVGs).
+const logo = readFileSync(join(docs, "assets", "logo.svg"), "utf8")
+  .replace(/<style>[\s\S]*?<\/style>/, "")
+  .replace("<text ", '<text fill="currentColor" font-size="56" font-weight="700" ');
+const inlineLogo = (html: string) =>
+  html.replace(/<img src="[^"]*logo\.svg" alt="halo">/g, logo);
 
 interface Page {
   path: string;
@@ -245,14 +251,15 @@ function render(page: Page, pages: Page[]) {
 <link rel="stylesheet" href="${root}style.css">
 </head>
 <body>
-<header>
+${
+  page.path === "index.html"
+    ? `<main class="landing">${page.html}</main>
+<footer><a href="guide/getting-started.html">Docs</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a></footer>`
+    : `<header>
 <a class="brand" href="${root}index.html"><img src="${root}assets/logo.svg" alt="halo"></a>
 <span><a href="${root}guide/getting-started.html">Docs</a><a href="${github}">GitHub</a></span>
 </header>
-${
-  page.path === "index.html"
-    ? `<main class="landing">${page.html}</main>`
-    : `<div class="layout">
+<div class="layout">
 <nav>
 <p>Guide</p>${guide.join("")}
 <p>Reference</p>${api.join("")}${cliPage ? link(cliPage) : ""}
@@ -272,7 +279,7 @@ rmSync(out, { recursive: true, force: true });
 for (const page of pages) {
   const file = join(out, page.path);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, render(page, pages));
+  writeFileSync(file, inlineLogo(render(page, pages)));
 }
 cpSync(join(import.meta.dir, "style.css"), join(out, "style.css"));
 if (existsSync(join(docs, "assets")))

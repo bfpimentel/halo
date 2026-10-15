@@ -2,6 +2,7 @@ import AppKit
 import Compositor
 import JavaScriptCore
 import Render
+import Services
 
 /// What the runtime needs from whoever hosts it: the CLI-controlled visibility of named surfaces.
 @MainActor
@@ -22,10 +23,11 @@ public final class Runtime {
         public var nodes = 0
         public var surfaces = 0
         public var timers = 0
+        public var services = 0
 
         public static let zero = Counts()
 
-        public var description: String { "\(nodes) nodes, \(surfaces) surfaces, \(timers) timers" }
+        public var description: String { "\(nodes) nodes, \(surfaces) surfaces, \(timers) timers, \(services) services" }
     }
 
     final class SurfaceEntry {
@@ -61,6 +63,10 @@ public final class Runtime {
     var mouseMonitors: [Any] = []
     var pointerMonitors: [Any] = []
     var placingAttached: Set<Int> = []
+    var serviceEntries: [String: ServiceEntry] = [:]
+    var serviceSubscriptions: [Int: String] = [:]
+    /// Builds native services by name; tests swap in fakes.
+    public var serviceFactory: @MainActor (String, [String: Any]) -> Service? = { Services.make($0, options: $1) }
     var frameSubscribers: Set<Int> = []
     var frameLink: CADisplayLink?
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
@@ -73,7 +79,10 @@ public final class Runtime {
     var disposed = false
 
     public var counts: Counts {
-        Counts(nodes: nodes.count, surfaces: surfaces.count, timers: timers.count + frameSubscribers.count)
+        Counts(
+            nodes: nodes.count, surfaces: surfaces.count, timers: timers.count + frameSubscribers.count,
+            services: serviceSubscriptions.count
+        )
     }
 
     /// `events` holds the latest payload per external event name, so a fresh load starts from known state.
@@ -165,6 +174,7 @@ public final class Runtime {
         processes.removeAll()
         stopMouseMonitors()
         stopPointerMonitors()
+        stopServices()
         frameSubscribers.removeAll()
         updateFrameLink()
         backend.transaction {

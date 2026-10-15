@@ -56,6 +56,14 @@ export interface Native {
   cancelAnimation(id: number, key: string): void;
   /** Starts or stops `frame` events (display-link timestamps in ms) for a JS-allocated id. */
   setFrames(id: number, enabled: boolean): void;
+  /** Starts (or joins) a native service; `onState` gets its state now and on every change. Returns an id. */
+  subscribeService(
+    name: string,
+    options: object,
+    onState: (state: Record<string, unknown>) => void,
+  ): number;
+  unsubscribeService(id: number): void;
+  serviceAction(name: string, action: string, value: unknown): boolean;
   /** Latest payload the host received for an external event, kept across reloads. */
   lastEvent(name: string): Record<string, string> | null;
 }
