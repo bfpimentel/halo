@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the release zip that the GitHub workflow publishes and the Nix flake installs:
-#   halo-<version>-macos/{bin/halo, share/halo/runtime/src, share/halo/examples}
+#   halo-<version>-macos/{bin/halo, share/halo/runtime/src, share/halo/examples, LICENSE}
 # The binary is universal (arm64 + x86_64). Usage: scripts/package.sh [version] (defaults to IPC.version).
 set -euo pipefail
 
@@ -23,6 +23,7 @@ mkdir -p "$stage/bin" "$stage/share/halo/runtime"
 cp "$binary" "$stage/bin/halo"
 cp -R runtime/src "$stage/share/halo/runtime/src"
 cp -R examples "$stage/share/halo/examples"
+cp LICENSE "$stage/LICENSE"
 
 (cd dist && zip -qry "$name.zip" "$name")
 

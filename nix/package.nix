@@ -37,6 +37,7 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "Widget runtime for macOS: bars, panels and HUDs written in TSX";
     homepage = "https://github.com/bfpimentel/halo";
+    license = lib.licenses.gpl3Plus;
     platforms = lib.platforms.darwin;
     mainProgram = "halo";
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];

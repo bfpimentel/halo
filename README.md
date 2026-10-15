@@ -156,3 +156,33 @@ cd site && bun install && bun run build        # docs → site/dist
 ```
 
 Releases: [`docs/releasing.md`](docs/releasing.md).
+
+## Alternatives
+
+| Project                                                | Approach                                        | Rendering |
+| ------------------------------------------------------ | ----------------------------------------------- | --------- |
+| [SketchyBar](https://github.com/FelixKratz/SketchyBar) | Shell (or Lua) scripts driving a CLI; bars only | Native    |
+| [Übersicht](https://tracesof.net/uebersicht/)          | HTML, CSS and JS/React, fed by shell commands   | WebView   |
+| [Zebar](https://github.com/glzr-io/zebar)              | Any web framework; also runs on Windows         | WebView   |
+| [Barik](https://github.com/mocki-toki/barik)           | A configurable menu bar for yabai and AeroSpace | Native    |
+| [Hammerspoon](https://www.hammerspoon.org)             | Lua, drawing with `hs.canvas`                   | Native    |
+
+## References
+
+- [SketchyBar](https://github.com/FelixKratz/SketchyBar): surfaces, placement around the notch and menu bar, CLI-driven updates.
+- [Quickshell](https://quickshell.org): per-screen widgets and reactive services.
+- [AGS / Astal](https://aylur.github.io/astal/): JSX with reactive bindings.
+- [wlr-layer-shell](https://wayland.app/protocols/wlr-layer-shell-unstable-v1): layers, anchors and margins.
+- [simple-bar](https://github.com/Jean-Tinland/simple-bar): pushing window-manager state into widgets.
+- [SolidJS](https://www.solidjs.com): the signals model.
+- [Yoga](https://yogalayout.dev): flexbox layout. [esbuild](https://esbuild.github.io): TSX bundling.
+- [Catppuccin](https://catppuccin.com): the palette used in the examples.
+
+## AI usage
+
+halo is built with AI assistance: most of its code, tests and docs were written by Claude (Anthropic) through
+Claude Code, with design decisions, direction and testing by the maintainer.
+
+## License
+
+[GPL-3.0-or-later](LICENSE).
