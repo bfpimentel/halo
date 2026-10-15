@@ -1,0 +1,11 @@
+.DS_Store
+
+# SwiftPM / Xcode
+.build/
+.swiftpm/
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+
+# runtime/ (TypeScript)
+node_modules/
