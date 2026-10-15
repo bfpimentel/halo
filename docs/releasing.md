@@ -20,11 +20,11 @@ brew services start halo     # launch at login (LaunchAgent running `halo start`
 
 ### What the formula installs
 
-| Path | Contents |
-|---|---|
-| `bin/halo` | the single binary (`swift build -c release --product halo`) |
+| Path                     | Contents                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `bin/halo`               | the single binary (`swift build -c release --product halo`)                          |
 | `share/halo/runtime/src` | the TS runtime; `Bundler.locate` finds it next to the real (symlink-resolved) binary |
-| `share/halo/examples` | the example configs |
+| `share/halo/examples`    | the example configs                                                                  |
 
 `halo init` writes `opt/halo/...` paths (not the versioned Cellar path) into the user's `tsconfig.json`, so editor
 types survive upgrades. esbuild comes from the `esbuild` formula; launchd's minimal `PATH` is covered by the

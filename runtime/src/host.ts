@@ -39,7 +39,7 @@ function guarded(fn: (...args: unknown[]) => void, args: unknown[]) {
   };
 }
 
-/// Timers started inside a component are cleared with it.
+/** Timers started inside a component are cleared with it. */
 function startTimer(ms: number, repeats: boolean, fn: () => void): number {
   const id = native.setTimer(Math.max(0, ms), repeats, fn);
   if (getOwner()) onCleanup(() => native.clearTimer(id));
@@ -68,15 +68,17 @@ export function installGlobals(): void {
   setErrorHandler(reportError);
 }
 
+/** Runs a program with arguments (no shell) and resolves with its output. */
 export function exec(command: string, args: string[] = []): Promise<ExecResult> {
   return new Promise((resolve) => native.exec(command, args, resolve));
 }
 
+/** Runs a command with `/bin/sh -c` and resolves with its output. */
 export function sh(command: string): Promise<ExecResult> {
   return exec("/bin/sh", ["-c", command]);
 }
 
-/// Runs a shell command every `intervalMs` and exposes its trimmed stdout. Stops with its owner.
+/** Runs a shell command every `intervalMs` and exposes its trimmed stdout. Stops with its owner. */
 export function poll(
   command: string,
   intervalMs: number,
@@ -98,7 +100,7 @@ export function poll(
   return output;
 }
 
-/// `scope` was opened before the config's modules ran, so it owns their top-level effects and timers too.
+/** `scope` was opened before the config's modules ran, so it owns their top-level effects and timers too. */
 export function mount(scope: OwnerHandle, app: unknown): void {
   globalThis.__halo.dispose = () => scope.dispose();
   runWithOwner(scope, () => {

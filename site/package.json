@@ -1,0 +1,13 @@
+{
+  "name": "halo-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build.ts"
+  },
+  "devDependencies": {
+    "marked": "^18.1.1",
+    "typedoc": "^0.28.20",
+    "typescript": "~5.9"
+  }
+}

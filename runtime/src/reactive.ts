@@ -1,11 +1,14 @@
+/** Reads a reactive value; reading inside an effect, computed or reactive prop subscribes to it. */
 export type Accessor<T> = () => T;
 
+/** A writable reactive value. */
 export interface Signal<T> extends Accessor<T> {
   set(value: T): void;
   update(fn: (value: T) => T): void;
 }
 
-type Equals<T> = false | ((a: T, b: T) => boolean);
+/** How a signal or computed decides a new value is unchanged (`Object.is` by default); `false` always notifies. */
+export type Equals<T> = false | ((a: T, b: T) => boolean);
 
 const CLEAN = 0;
 const CHECK = 1;
@@ -74,8 +77,10 @@ class SignalNode<T> implements Source {
   }
 }
 
-/// Glitch-free push/pull: writes mark observers DIRTY and their dependents CHECK;
-/// a CHECK computation re-runs only if one of its memo sources actually changed.
+/**
+ * Glitch-free push/pull: writes mark observers DIRTY and their dependents CHECK;
+ * a CHECK computation re-runs only if one of its memo sources actually changed.
+ */
 class Computation<T> extends Owner implements Source {
   observers = new Set<Computation<unknown>>();
   sources = new Set<Source>();
@@ -96,8 +101,13 @@ class Computation<T> extends Owner implements Source {
     const wasClean = this.state === CLEAN;
     this.state = state;
     if (!wasClean) return;
-    if (this.isEffect) queue.push(this);
+    if (this.isEffect) queue.push(this.erased);
     for (const observer of this.observers) observer.mark(CHECK);
+  }
+
+  /** This computation in the shared, value-agnostic collections (queue, observer sets). */
+  private get erased(): Computation<unknown> {
+    return this as unknown as Computation<unknown>;
   }
 
   update(): void {
@@ -106,7 +116,7 @@ class Computation<T> extends Owner implements Source {
       for (const source of this.sources) {
         if (source instanceof Computation) {
           source.update();
-          if (this.state === DIRTY) break;
+          if ((this.state as number) === DIRTY) break;
         }
       }
     }
@@ -123,7 +133,7 @@ class Computation<T> extends Owner implements Source {
   private run(): void {
     this.disposeContents();
     this.unlinkSources();
-    const previous = enter(this, this as Computation<unknown>);
+    const previous = enter(this, this.erased);
     try {
       const value = this.fn(this.value);
       const unchanged =
@@ -141,7 +151,7 @@ class Computation<T> extends Owner implements Source {
   }
 
   private unlinkSources(): void {
-    for (const source of this.sources) source.observers.delete(this);
+    for (const source of this.sources) source.observers.delete(this.erased);
     this.sources.clear();
   }
 
@@ -159,7 +169,7 @@ let flushing = false;
 let queue: Computation<unknown>[] = [];
 let errorHandler: (error: unknown) => void = (error) => console.error(error);
 
-/// Makes `owner`/`tracking` current and returns the previous pair, for restoring afterwards.
+/** Makes `owner`/`tracking` current and returns the previous pair, for restoring afterwards. */
 function enter(
   owner: Owner | null,
   tracking: Computation<unknown> | null,
@@ -200,6 +210,7 @@ function flush(): void {
   }
 }
 
+/** Creates a signal. Readers update when it is set to a different value. */
 export function signal<T>(initial: T, options?: { equals?: Equals<T> }): Signal<T> {
   const node = new SignalNode(initial, options?.equals ?? Object.is);
   const accessor = (() => node.read()) as Signal<T>;
@@ -208,16 +219,19 @@ export function signal<T>(initial: T, options?: { equals?: Equals<T> }): Signal<
   return accessor;
 }
 
+/** A derived value, recomputed only when what it reads changes, and only if something reads it. */
 export function computed<T>(fn: () => T, options?: { equals?: Equals<T> }): Accessor<T> {
   const computation = new Computation<T>(fn, false, options?.equals ?? Object.is);
   return () => computation.read();
 }
 
+/** Runs `fn` now and again whenever a signal it read changes. Disposed with its owner. */
 export function effect(fn: () => void): void {
   const computation = new Computation<void>(fn, true, false);
   computation.update();
 }
 
+/** Applies every write in `fn` first, then runs affected effects once. */
 export function batch<T>(fn: () => T): T {
   batchDepth++;
   try {
@@ -228,6 +242,7 @@ export function batch<T>(fn: () => T): T {
   }
 }
 
+/** Reads signals without subscribing to them. */
 export function untrack<T>(fn: () => T): T {
   const previous = listener;
   listener = null;
@@ -238,11 +253,12 @@ export function untrack<T>(fn: () => T): T {
   }
 }
 
+/** Registers `fn` to run when the current component, effect or root is disposed. */
 export function onCleanup(fn: () => void): void {
   currentOwner?.cleanups.push(fn);
 }
 
-/// Runs `fn` in a new ownership scope, disposed with its parent or by calling `dispose`.
+/** Runs `fn` in a new ownership scope, disposed with its parent or by calling `dispose`. */
 export function root<T>(fn: (dispose: () => void) => T): T {
   const owner = new Owner(currentOwner);
   const previousOwner = currentOwner;
@@ -257,12 +273,15 @@ export function root<T>(fn: (dispose: () => void) => T): T {
   }
 }
 
+/** The scope that owns effects and cleanups. */
 export type OwnerHandle = Owner;
 
+/** The current owner, to run code in it later with `runWithOwner`. */
 export function getOwner(): OwnerHandle | null {
   return currentOwner;
 }
 
+/** Runs `fn` inside `owner`, so effects and cleanups created there belong to it. */
 export function runWithOwner<T>(owner: OwnerHandle | null, fn: () => T): T {
   const previousOwner = currentOwner;
   const previousListener = listener;
@@ -276,7 +295,7 @@ export function runWithOwner<T>(owner: OwnerHandle | null, fn: () => T): T {
   }
 }
 
-/// Makes a new scope current until `endScope`: module-level code then has an owner like component code does.
+/** Makes a new scope current until `endScope`: module-level code then has an owner like component code does. */
 export function beginScope(): OwnerHandle {
   currentOwner = new Owner(null);
   return currentOwner;

@@ -1,3 +1,4 @@
+/** A rectangle in points, top-left origin. */
 export interface Rect {
   x: number;
   y: number;
@@ -5,24 +6,26 @@ export interface Rect {
   height: number;
 }
 
+/** A connected display, as `screens()` and `<PerScreen>` report it. */
 export interface ScreenInfo {
   id: number;
   name: string;
   frame: Rect;
   scale: number;
-  /// 1-based position in macOS's display list (AeroSpace's `monitor-appkit-nsscreen-screens-id`).
+  /** 1-based position in macOS's display list (AeroSpace's `monitor-appkit-nsscreen-screens-id`). */
   index: number;
   menuBarHeight: number;
   notch: Rect | null;
 }
 
+/** What `exec()` and `sh()` resolve with. */
 export interface ExecResult {
   stdout: string;
   stderr: string;
   code: number;
 }
 
-/// Installed by the Swift host (`JSRuntime/Bridge.swift`). Ids are plain integers owned by the host.
+/** Installed by the Swift host (`JSRuntime/Bridge.swift`). Ids are plain integers owned by the host. */
 export interface Native {
   log(level: "log" | "warn" | "error", message: string): void;
   createNode(kind: "box" | "text" | "image" | "input"): number;
@@ -39,11 +42,11 @@ export interface Native {
   clearTimer(id: number): void;
   exec(command: string, args: string[], done: (result: ExecResult) => void): void;
   formatDate(pattern: string, epochMs: number): string;
-  /// Starts or stops native delivery of `kind` events for a node or surface id.
+  /** Starts or stops native delivery of `kind` events for a node or surface id. */
   listen(id: number, kind: string, enabled: boolean): void;
   setVisibility(action: "show" | "hide" | "toggle", name: string): void;
   focus(id: number): void;
-  /// Plays keyframes on a node; `done(finished)` fires when it ends or is cancelled. Returns a key for cancelling.
+  /** Plays keyframes on a node; `done(finished)` fires when it ends or is cancelled. Returns a key for cancelling. */
   animate(
     id: number,
     tracks: object,
@@ -51,24 +54,46 @@ export interface Native {
     done: (finished: boolean) => void,
   ): string;
   cancelAnimation(id: number, key: string): void;
-  /// Starts or stops `frame` events (display-link timestamps in ms) for a JS-allocated id.
+  /** Starts or stops `frame` events (display-link timestamps in ms) for a JS-allocated id. */
   setFrames(id: number, enabled: boolean): void;
-  /// Latest payload the host received for an external event, kept across reloads.
+  /** Latest payload the host received for an external event, kept across reloads. */
   lastEvent(name: string): Record<string, string> | null;
 }
 
-/// Functions the host calls into.
+/** Functions the host calls into. */
 export interface HostHooks {
   onScreens?: (screens: ScreenInfo[]) => void;
   onEvent?: (name: string, payload: Record<string, string>) => void;
   dispose?: () => void;
-  /// Returns true when a handler consumed the event (keys then don't reach the system / text field).
+  /** Returns true when a handler consumed the event (keys then don't reach the system / text field). */
   dispatch?: (id: number, kind: string, payload: unknown) => boolean;
 }
 
 declare global {
   var __native: Native;
   var __halo: HostHooks;
+
+  /** Timers and logging halo provides (JavaScriptCore has none); timers started in a component stop with it. */
+  function setTimeout(
+    fn: (...args: unknown[]) => void,
+    ms?: number,
+    ...args: unknown[]
+  ): number;
+  function setInterval(
+    fn: (...args: unknown[]) => void,
+    ms?: number,
+    ...args: unknown[]
+  ): number;
+  function clearTimeout(id?: number): void;
+  function clearInterval(id?: number): void;
+  function queueMicrotask(fn: () => void): void;
+  var console: {
+    log(...values: unknown[]): void;
+    info(...values: unknown[]): void;
+    debug(...values: unknown[]): void;
+    warn(...values: unknown[]): void;
+    error(...values: unknown[]): void;
+  };
 }
 
 export const native: Native = globalThis.__native;

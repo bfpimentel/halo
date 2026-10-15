@@ -17,7 +17,7 @@ globalThis.__halo.dispatch = (id, kind, payload) => {
   }
 };
 
-/// Registers a JS-side handler without asking the host to start delivering (for ids JS allocated itself).
+/** Registers a JS-side handler without asking the host to start delivering (for ids JS allocated itself). */
 export function subscribe(id: number, kind: string, handler: Handler): () => void {
   const byKind = handlers.get(id) ?? new Map<string, Handler>();
   byKind.set(kind, handler);
@@ -28,7 +28,7 @@ export function subscribe(id: number, kind: string, handler: Handler): () => voi
   };
 }
 
-/// Routes native `kind` events for `id` to `handler` until the current owner is disposed.
+/** Routes native `kind` events for `id` to `handler` until the current owner is disposed. */
 export function listen(id: number, kind: string, handler: Handler | undefined): void {
   if (!handler) return;
   const byKind = handlers.get(id) ?? new Map<string, Handler>();
@@ -42,6 +42,7 @@ export function listen(id: number, kind: string, handler: Handler | undefined): 
   });
 }
 
+/** Passed to `onClick`. `x`/`y` are surface-local points. */
 export interface ClickEvent {
   x: number;
   y: number;
@@ -49,13 +50,15 @@ export interface ClickEvent {
   clicks: number;
 }
 
+/** Passed to `onScroll`, in points. */
 export interface ScrollEvent {
   dx: number;
   dy: number;
 }
 
+/** Passed to `onKeyDown`. */
 export interface KeyEvent {
-  /// "Enter", "Escape", "ArrowUp", "Tab", "Backspace", "Space"… or the typed character.
+  /** "Enter", "Escape", "ArrowUp", "Tab", "Backspace", "Space"… or the typed character. */
   key: string;
   shift: boolean;
   ctrl: boolean;
@@ -64,15 +67,17 @@ export interface KeyEvent {
   repeat: boolean;
 }
 
-/// Same as `halo show|hide|toggle <name>` from the CLI.
+/** Shows every surface named `name` (like `halo show <name>`). */
 export function show(name: string): void {
   native.setVisibility("show", name);
 }
 
+/** Hides every surface named `name`. */
 export function hide(name: string): void {
   native.setVisibility("hide", name);
 }
 
+/** Shows or hides every surface named `name`. */
 export function toggle(name: string): void {
   native.setVisibility("toggle", name);
 }

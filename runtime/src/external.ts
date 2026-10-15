@@ -2,7 +2,7 @@ import { reportError, sh } from "halo/host";
 import { native } from "halo/native";
 import { getOwner, onCleanup, signal, type Accessor } from "halo/reactive";
 
-/// What `halo trigger <name> key=value ...` sends. Hydration results arrive as `{ stdout, stderr, code }`.
+/** What `halo trigger <name> key=value ...` sends. Hydration results arrive as `{ stdout, stderr, code }`. */
 export type Payload = Record<string, string>;
 
 type Handler = (payload: Payload) => void;
@@ -13,16 +13,19 @@ globalThis.__halo.onEvent = (name, payload) => {
   for (const handler of handlers.get(name) ?? []) handler(payload);
 };
 
+/** Options for `externalSignal()`. */
 export interface ExternalSignalOptions<T> {
   initial?: T;
-  /// Shell command run on load (and so after every reload) to get the current state before the first event.
+  /** Shell command run on load (and so after every reload) to get the current state before the first event. */
   hydrate?: string;
-  /// Turns a payload into the signal's value; returning `undefined` ignores the payload.
+  /** Turns a payload into the signal's value; returning `undefined` ignores the payload. */
   parse?: (payload: Payload) => T | undefined;
 }
 
-/// The latest value pushed with `halo trigger <name>`. Starts from the last payload the host saw,
-/// then from `hydrate` — unless a live event arrives first.
+/**
+ * The latest value pushed with `halo trigger <name>`. Starts from the last payload the host saw,
+ * then from `hydrate` — unless a live event arrives first.
+ */
 export function externalSignal<T = Payload>(
   name: string,
   options: ExternalSignalOptions<T> = {},

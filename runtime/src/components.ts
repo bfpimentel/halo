@@ -13,12 +13,15 @@ import {
   type Accessor,
 } from "halo/reactive";
 
+/** A value, or a function returning it that is re-read when the signals it reads change. */
 export type Reactive<T> = T | Accessor<T>;
 
+/** A handle to a rendered element, from `ref`. Pass it to `attach`, `focus()` or `animate()`. */
 export class NativeNode {
   constructor(readonly id: number) {}
 }
 
+/** Anything a component or child slot can return. */
 export type Element =
   | NativeNode
   | string
@@ -36,6 +39,7 @@ type Spacing =
   | [vertical: number, horizontal: number]
   | [top: number, right: number, bottom: number, left: number];
 
+/** Layout and paint properties. Every value can be reactive. */
 export interface BoxStyle {
   flexDirection?: "row" | "column";
   justify?:
@@ -58,18 +62,19 @@ export interface BoxStyle {
   radius?: number;
   opacity?: number;
   scale?: number;
-  /// Degrees, clockwise.
+  /** Degrees, clockwise. */
   rotate?: number;
   translateX?: number;
   translateY?: number;
-  /// Pivot for scale/rotate as fractions of the node's size; defaults to the center, [0.5, 0.5].
+  /** Pivot for scale/rotate as fractions of the node's size; defaults to the center, [0.5, 0.5]. */
   origin?: [x: number, y: number];
-  /// Animate changes instead of jumping: `{ opacity: 150, scale: { duration: 300, curve: "spring" }, layout: 200 }`.
+  /** Animate changes instead of jumping: `{ opacity: 150, scale: { duration: 300, curve: "spring" }, layout: 200 }`. */
   transition?: Transitions;
 }
 
+/** Box properties plus text properties. */
 export interface TextStyle extends BoxStyle {
-  /// Lines before truncating; 1 by default, 0 for no limit. More than one wraps at the box's width.
+  /** Lines before truncating; 1 by default, 0 for no limit. More than one wraps at the box's width. */
   lines?: number;
   textAlign?: "left" | "center" | "right";
   color?: Color;
@@ -78,17 +83,18 @@ export interface TextStyle extends BoxStyle {
   fontFamily?: string;
 }
 
-type StyleProp<S> = Reactive<{ [K in keyof S]?: Reactive<S[K]> }>;
+/** A style object (or a function returning one); each property can also be reactive on its own. */
+export type StyleProp<S> = Reactive<{ [K in keyof S]?: Reactive<S[K]> }>;
 
 function read<T>(value: Reactive<T>): T {
   return typeof value === "function" ? (value as Accessor<T>)() : value;
 }
 
-/// Event props shared by Box, Text and Image. Events bubble to the closest ancestor listening for them.
+/** Event props shared by Box, Text and Image. Events bubble to the closest ancestor listening for them. */
 export interface Interactive {
-  /// Played once, when the node first appears: `{ from: { opacity: 0, translateY: 8 }, duration: 200 }`.
+  /** Played once, when the node first appears: `{ from: { opacity: 0, translateY: 8 }, duration: 200 }`. */
   enter?: EnterTransition;
-  /// Played when the node is removed (e.g. a list item going away); it leaves the layout right away.
+  /** Played when the node is removed (e.g. a list item going away); it leaves the layout right away. */
   exit?: ExitTransition;
   onClick?: (event: ClickEvent) => void;
   onScroll?: (event: ScrollEvent) => void;
@@ -151,7 +157,7 @@ function toNodes(value: Element): NativeNode[] {
   });
 }
 
-/// Static children are inserted once; each function child is a slot re-rendered when what it reads changes.
+/** Static children are inserted once; each function child is a slot re-rendered when what it reads changes. */
 function appendChildren(parent: NativeNode, children: Element): void {
   const sizes: number[] = [];
   for (const child of flatten(children)) {
@@ -176,9 +182,15 @@ function appendChildren(parent: NativeNode, children: Element): void {
   }
 }
 
-export function Box(
-  props: Interactive & { style?: StyleProp<BoxStyle>; children?: Element },
-): NativeNode {
+/** Props of `<Box>`. */
+export interface BoxProps extends Interactive {
+  style?: StyleProp<BoxStyle>;
+  /** Nodes, strings, or functions returning them (re-rendered when what they read changes). */
+  children?: Element;
+}
+
+/** A flexbox container. Strings among its children become `<Text>`. */
+export function Box(props: BoxProps): NativeNode {
   const node = createNode("box");
   applyStyle(node, props.style);
   appendChildren(node, props.children);
@@ -186,10 +198,15 @@ export function Box(
   return node;
 }
 
-/// Function children are re-read reactively: `<Text>{() => `WS ${ws()}`}</Text>`.
-export function Text(
-  props: Interactive & { style?: StyleProp<TextStyle>; children?: Element },
-): NativeNode {
+/** Props of `<Text>`. */
+export interface TextProps extends Interactive {
+  style?: StyleProp<TextStyle>;
+  /** Strings and numbers; only function children update: `{() => `WS ${ws()}`}`. */
+  children?: Element;
+}
+
+/** Text, one line by default (see `TextStyle.lines`). */
+export function Text(props: TextProps): NativeNode {
   const node = createNode("text");
   wire(node, props);
   applyStyle(node, props.style);
@@ -202,17 +219,23 @@ export function Text(
   return node;
 }
 
-export function Image(
-  props: Interactive & {
-    symbol?: Reactive<string>;
-    /// A bundle id ("com.apple.Safari") or an absolute `.app` path.
-    app?: Reactive<string>;
-    file?: Reactive<string>;
-    size?: Reactive<number>;
-    color?: Reactive<Color>;
-    style?: StyleProp<BoxStyle>;
-  },
-): NativeNode {
+/** Props of `<Image>`: set one of `symbol`, `app` or `file`. */
+export interface ImageProps extends Interactive {
+  /** An SF Symbol name, e.g. `"battery.75percent"`. */
+  symbol?: Reactive<string>;
+  /** A bundle id (`"com.apple.Safari"`) or an absolute `.app` path. */
+  app?: Reactive<string>;
+  /** An image file path; `~` is expanded. */
+  file?: Reactive<string>;
+  /** Width and height in points. Default 16. */
+  size?: Reactive<number>;
+  /** Tint for SF Symbols. */
+  color?: Reactive<Color>;
+  style?: StyleProp<BoxStyle>;
+}
+
+/** An SF Symbol, an app icon or an image file. */
+export function Image(props: ImageProps): NativeNode {
   const node = createNode("image");
   for (const key of ["size", "color", "symbol", "app", "file"] as const) {
     const value = props[key];
@@ -224,19 +247,25 @@ export function Image(
   return node;
 }
 
-/// A native single-line text field (IME, selection and clipboard included). Needs a `keyboard` surface.
-/// `onKeyDown` gets every editing key (Enter, Escape, arrows, Tab, Home/End…) with its modifiers; return true to
-/// stop the field's default behavior.
-export function Input(props: {
+/** Props of `<Input>`. */
+export interface InputProps {
+  /** The text; pass the signal you update in `onInput`. */
   value?: Reactive<string>;
   placeholder?: Reactive<string>;
+  /** Take focus whenever its surface does. */
   autofocus?: boolean;
   style?: StyleProp<TextStyle>;
+  /** Every edit, with the new text. */
   onInput?: (value: string) => void;
+  /** Enter, unless `onKeyDown` handled it. */
   onSubmit?: (value: string) => void;
+  /** Every editing key (Enter, Escape, arrows, Tab, Home/End…) with modifiers; return true to stop the default. */
   onKeyDown?: (event: KeyEvent) => boolean | void;
   ref?: (node: NativeNode) => void;
-}): NativeNode {
+}
+
+/** A native single-line text field (IME, selection, clipboard). Needs an `input="keyboard"` surface. */
+export function Input(props: InputProps): NativeNode {
   const node = createNode("input");
   for (const key of ["value", "placeholder"] as const) {
     const value = props[key];
@@ -252,13 +281,15 @@ export function Input(props: {
   return node;
 }
 
-/// Moves keyboard focus into an `<Input>` (its surface must have focus).
+/** Moves keyboard focus into an `<Input>` (its surface must have focus). */
 export function focus(node: NativeNode): void {
   native.focus(node.id);
 }
 
+/** A screen edge to anchor a surface to. */
 export type Edge = "top" | "bottom" | "left" | "right";
 
+/** Where an attached surface (a popup) sits relative to a node. */
 export interface Attachment {
   to: NativeNode | undefined;
   side?: "below" | "above" | "left" | "right";
@@ -266,27 +297,30 @@ export interface Attachment {
   offset?: number;
 }
 
+/** How a surface is placed, stacked and made interactive. */
 export interface SurfaceProps {
-  /// Target for `halo show|hide|toggle <name>`; shared by this widget's instance on every display.
+  /** Target for `halo show|hide|toggle <name>`; shared by this widget's instance on every display. */
   name?: string;
-  /// Start hidden the first time this name appears (e.g. a launcher opened by a hotkey).
+  /** Start hidden the first time this name appears (e.g. a launcher opened by a hotkey). */
   defaultHidden?: boolean;
-  /// Place next to a node of another surface instead of anchoring to the screen. Needs a fixed `size`.
+  /** Place next to a node of another surface instead of anchoring to the screen. Follows the node as it moves. */
   attach?: Reactive<Attachment>;
   onKeyDown?: (event: KeyEvent) => boolean | void;
   onFocus?: () => void;
   onBlur?: () => void;
-  /// A click anywhere outside this surface, in any app.
+  /** A click anywhere outside this surface, in any app. */
   onClickOutside?: () => void;
-  /// Played on the content every time the surface appears (including `halo show`).
+  /** Played on the content every time the surface appears (including `halo show`). */
   enter?: EnterTransition;
-  /// Played before the surface hides; it stays on screen until the animation ends.
+  /** Played before the surface hides; it stays on screen until the animation ends. */
   exit?: ExitTransition;
   screen: Reactive<number | ScreenInfo>;
   anchor?: Reactive<Edge[]>;
   margins?: Reactive<Spacing>;
-  /// Per axis: points, "fill" (between both anchors), or "auto" (the content's size). Omitted axes are "fill" when
-  /// anchored to both edges of that axis and "auto" otherwise.
+  /**
+   * Per axis: points, "fill" (between both anchors), or "auto" (the content's size). Omitted axes are "fill" when
+   * anchored to both edges of that axis and "auto" otherwise.
+   */
   size?: Reactive<{
     width?: number | "fill" | "auto";
     height?: number | "fill" | "auto";
@@ -298,6 +332,7 @@ export interface SurfaceProps {
   children?: Element;
 }
 
+/** A top-level window. Its child is laid out to fill it. */
 export function Surface(props: SurfaceProps): null {
   const children = flatten(props.children);
   const content =
@@ -348,10 +383,17 @@ function attachment(value: Reactive<Attachment> | undefined) {
 const screenList = signal<ScreenInfo[]>(native.screens(), { equals: false });
 globalThis.__halo.onScreens = (list) => screenList.set(list);
 
+/** The connected displays, updated when displays change. */
 export const screens: Accessor<ScreenInfo[]> = screenList;
 
-/// Instances its children once per display; an instance is disposed when its display goes away.
-export function PerScreen(props: { children: (screen: ScreenInfo) => Element }): null {
+/** Props of `<PerScreen>`. */
+export interface PerScreenProps {
+  /** Called once per display; return its surfaces. */
+  children: (screen: ScreenInfo) => Element;
+}
+
+/** Renders its children once per display, and disposes an instance when its display goes away. */
+export function PerScreen(props: PerScreenProps): null {
   const owner = getOwner();
   const instances = new Map<number, () => void>();
   effect(() => {

@@ -10,6 +10,12 @@ export {
 } from "halo/components";
 export type {
   Attachment,
+  BoxProps,
+  ImageProps,
+  InputProps,
+  PerScreenProps,
+  StyleProp,
+  TextProps,
   BoxStyle,
   Edge,
   Element,

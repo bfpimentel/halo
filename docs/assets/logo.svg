@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="116" height="64" viewBox="0 0 116 64" role="img" aria-label="halo">
+  <style>
+    text { fill: #1d1d1f; font: 700 56px -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) { text { fill: #e8e8ed; } }
+  </style>
+  <text x="2" y="50">halo</text>
+</svg>

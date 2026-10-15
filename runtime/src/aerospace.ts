@@ -4,9 +4,10 @@ import { sh } from "halo/host";
 import type { ScreenInfo } from "halo/native";
 import { computed, effect, signal, type Accessor } from "halo/reactive";
 
+/** An AeroSpace workspace as `aerospace()` reports it. */
 export interface Workspace {
   name: string;
-  /// The halo display (`ScreenInfo.id`) showing this workspace, matched exactly through the macOS display index.
+  /** The halo display (`ScreenInfo.id`) showing this workspace, matched exactly through the macOS display index. */
   screen: number | undefined;
   focused: boolean;
   empty: boolean;
@@ -18,9 +19,21 @@ const query =
   ` && echo ${separator} && aerospace list-workspaces --focused` +
   ` && echo ${separator} && aerospace list-workspaces --monitor all --empty no`;
 
-/// AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger (see examples/aerospace).
-/// Call once per config, at module level or inside a component.
-export function aerospace(options: { command?: string } = {}) {
+/** Live AeroSpace state, from `aerospace()`. */
+export interface AeroSpace {
+  /** Every workspace with its display, focus and emptiness. */
+  workspaces: Accessor<Workspace[]>;
+  /** The focused workspace's name. */
+  focused: Accessor<string | undefined>;
+  /** Workspaces on one display, in AeroSpace's order. */
+  on(screen: ScreenInfo): Accessor<Workspace[]>;
+}
+
+/**
+ * AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger (see examples/aerospace).
+ * Call once per config, at module level or inside a component.
+ */
+export function aerospace(options: { command?: string } = {}): AeroSpace {
   const event = externalSignal("aerospace.workspace", {
     parse: (payload) => ({ ...payload }),
   });
@@ -85,7 +98,6 @@ export function aerospace(options: { command?: string } = {}) {
   return {
     workspaces,
     focused: computed(() => workspaces().find((workspace) => workspace.focused)?.name),
-    /// Workspaces on one display, in AeroSpace's order.
     on(screen: ScreenInfo): Accessor<Workspace[]> {
       return computed(
         () => workspaces().filter((workspace) => workspace.screen === screen.id),

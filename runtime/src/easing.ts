@@ -1,5 +1,6 @@
-/// Pure curve math for JS-driven animation (`tween`). Native animations use Core Animation's own curves.
+// Curve math for JS-driven animation (`tween`). Native animations use Core Animation's own curves.
 
+/** An easing curve: a name, cubic-bezier control points, or a spring. Springs ignore `duration`. */
 export type Curve =
   | "linear"
   | "ease-in"
@@ -24,7 +25,7 @@ const named: Record<string, [number, number, number, number]> = {
   "ease-in-out": [0.42, 0, 0.58, 1],
 };
 
-/// The spring a curve describes, or undefined for time-based curves.
+/** The spring a curve describes, or undefined for time-based curves. */
 export function springOf(curve: Curve | undefined): Spring | undefined {
   if (curve === "spring") return defaultSpring;
   if (curve && typeof curve === "object" && !Array.isArray(curve))
@@ -32,7 +33,7 @@ export function springOf(curve: Curve | undefined): Spring | undefined {
   return undefined;
 }
 
-/// Maps progress 0…1 to eased progress, CSS cubic-bezier semantics.
+/** Maps progress 0…1 to eased progress, CSS cubic-bezier semantics. */
 export function easing(curve: Curve | undefined = "ease-out"): (t: number) => number {
   const points = Array.isArray(curve)
     ? curve
@@ -73,7 +74,7 @@ export function cubicBezier(
   };
 }
 
-/// One semi-implicit Euler step of a damped spring pulling `value` toward `target`. `dt` in seconds.
+/** One semi-implicit Euler step of a damped spring pulling `value` toward `target`. `dt` in seconds. */
 export function springStep(
   spring: Spring,
   value: number,

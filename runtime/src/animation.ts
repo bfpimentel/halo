@@ -13,14 +13,14 @@ import {
 
 export type { Curve } from "halo/easing";
 
-/// Milliseconds, or the full form. Springs ignore `duration` and settle on their own.
+/** Milliseconds, or the full form. Springs ignore `duration` and settle on their own. */
 export type Timing = number | { duration?: number; curve?: Curve; delay?: number };
 
-/// Every paint property that can animate.
+/** Every paint property that can animate. */
 export interface Animatable {
   opacity?: number;
   scale?: number;
-  /// Degrees, clockwise.
+  /** Degrees, clockwise. */
   rotate?: number;
   translateX?: number;
   translateY?: number;
@@ -30,15 +30,17 @@ export interface Animatable {
   radius?: number;
 }
 
-/// `style.transition`: per property, plus `all` (any paint property) and `layout` (position/size changes).
+/** `style.transition`: per property, plus `all` (any paint property) and `layout` (position/size changes). */
 export type Transitions = { [K in keyof Animatable | "all" | "layout"]?: Timing };
 
+/** Played when a node or surface appears: animates `from` these values to its style. */
 export type EnterTransition = {
   from: Animatable;
   duration?: number;
   curve?: Curve;
   delay?: number;
 };
+/** Played before a node or surface goes away: animates from its style `to` these values. */
 export type ExitTransition = {
   to: Animatable;
   duration?: number;
@@ -46,31 +48,36 @@ export type ExitTransition = {
   delay?: number;
 };
 
+/** Values per property for `animate()`, e.g. `{ rotate: [0, 360], opacity: [1, 0.5, 1] }`. */
 export type KeyframeTracks = { [K in keyof Animatable]?: NonNullable<Animatable[K]>[] };
 
+/** Timing for `animate()`. */
 export interface KeyframeOptions {
   duration?: number;
-  /// Cubic-bezier or named curves only; springs don't apply to keyframes.
+  /** Cubic-bezier or named curves only; springs don't apply to keyframes. */
   curve?: Curve;
   delay?: number;
-  /// Number of runs; `Infinity` loops until cancelled.
+  /** Number of runs; `Infinity` loops until cancelled. */
   repeat?: number;
-  /// Plays back and forth.
+  /** Plays back and forth. */
   alternate?: boolean;
-  /// Position of each keyframe in 0…1 (defaults to evenly spaced).
+  /** Position of each keyframe in 0…1 (defaults to evenly spaced). */
   offsets?: number[];
-  /// Keep the last frame once finished instead of returning to the style.
+  /** Keep the last frame once finished instead of returning to the style. */
   fill?: boolean;
 }
 
+/** A running `animate()`. */
 export interface Animation {
   cancel(): void;
-  /// Resolves with `true` when it ran to the end, `false` when cancelled.
+  /** Resolves with `true` when it ran to the end, `false` when cancelled. */
   finished: Promise<boolean>;
 }
 
-/// Plays keyframes on a node on top of its style, e.g. `animate(icon, { rotate: [0, 360] }, { duration: 800, repeat: Infinity, curve: "linear" })`.
-/// Cancelled automatically when the calling component is disposed.
+/**
+ * Plays keyframes on a node on top of its style, e.g. `animate(icon, { rotate: [0, 360] }, { duration: 800, repeat: Infinity, curve: "linear" })`.
+ * Cancelled automatically when the calling component is disposed.
+ */
 export function animate(
   node: NativeNode,
   tracks: KeyframeTracks,
@@ -90,8 +97,10 @@ export function animate(
 
 let nextFrameID = -1;
 
-/// Calls `callback(time, dt)` (milliseconds) on every display refresh until it returns `false` or its owner is disposed.
-/// For anything Core Animation can't express. Returns a function that stops it.
+/**
+ * Calls `callback(time, dt)` (milliseconds) on every display refresh until it returns `false` or its owner is disposed.
+ * For anything Core Animation can't express. Returns a function that stops it.
+ */
 export function onFrame(
   callback: (time: number, dt: number) => boolean | void,
 ): () => void {
@@ -114,8 +123,10 @@ export function onFrame(
   return stop;
 }
 
-/// A number that follows `target` smoothly: each change animates from wherever the value currently is.
-/// Runs per frame in JS only while moving, e.g. `const shown = tween(() => count(), { duration: 400 })`.
+/**
+ * A number that follows `target` smoothly: each change animates from wherever the value currently is.
+ * Runs per frame in JS only while moving, e.g. `const shown = tween(() => count(), { duration: 400 })`.
+ */
 export function tween(target: Accessor<number>, timing: Timing = 250): Accessor<number> {
   const options = typeof timing === "number" ? { duration: timing } : timing;
   const spring = springOf(options.curve);

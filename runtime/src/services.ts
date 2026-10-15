@@ -9,7 +9,7 @@ interface Ticker {
 
 const tickers = new Map<number, Ticker>();
 
-/// One shared timer per resolution, aligned to its boundary, running only while something reads it.
+/** One shared timer per resolution, aligned to its boundary, running only while something reads it. */
 function ticker(resolutionMs: number): Accessor<number> {
   let entry = tickers.get(resolutionMs);
   if (!entry) {
@@ -39,8 +39,17 @@ function ticker(resolutionMs: number): Accessor<number> {
   return active.now;
 }
 
-export const clock = {
-  /// Unicode date pattern (e.g. "HH:mm", "EEE d MMM"). Ticks every second only if the pattern shows seconds.
+/** The current time as reactive strings. */
+export interface Clock {
+  /**
+   * The time formatted with a Unicode date pattern (`"HH:mm"`, `"EEE d MMM"`). Updates every minute, or every
+   * second when the pattern shows seconds; stops when nothing reads it.
+   */
+  format(pattern: string): Accessor<string>;
+}
+
+/** The current time as reactive strings. */
+export const clock: Clock = {
   format(pattern: string): Accessor<string> {
     const now = ticker(/s/.test(pattern.replace(/'[^']*'/g, "")) ? 1000 : 60_000);
     return () => native.formatDate(pattern, now());

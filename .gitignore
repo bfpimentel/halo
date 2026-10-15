@@ -17,3 +17,6 @@ dist/
 result
 
 CLAUDE.md
+
+# docs site build output (site/build.ts)
+site/dist/
