@@ -5,7 +5,7 @@ halo ships two ways:
 - **Homebrew**: a formula in this repository that builds from source.
 - **Nix**: a flake that installs the prebuilt release zip.
 
-The zip comes from the release workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)), which runs [`scripts/package.sh`](../scripts/package.sh) on every `v*` tag. The script builds a universal binary and writes `halo-<version>-macos.zip`. The zip contains `bin/halo`, `share/halo/runtime/src` and `share/halo/examples`.
+The zip comes from the release workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)), which runs [`scripts/package.sh`](../scripts/package.sh) on every `v*` tag. The script builds a universal binary and writes `halo-<version>-macos.zip`. The zip contains `bin/halo`, `share/halo/runtime/src`, `share/halo/examples` and `LICENSE`.
 
 ## Homebrew
 
@@ -32,41 +32,25 @@ service's `std_service_path_env` and by `Bundler`'s fallback search of `/opt/hom
 
 ## Nix
 
-Use the flake in your nix-darwin or home-manager configuration:
+User setup (inputs, modules, options): [Getting started](guide/01-getting-started.md#nix).
 
-```nix
-{
-  inputs.halo.url = "github:bfpimentel/halo";
+The package is `packages.<system>.default`. It downloads the release zip pinned in [`nix/release.json`](../nix/release.json), checks the zip's sha256 (`fetchurl`, so plain `shasum` computes it), unpacks it, and wraps `halo` so it uses nixpkgs' esbuild. Nix downloads don't get the quarantine flag, so the unsigned binary runs as is. To work on halo, `nix develop` gives you esbuild, bun, oxlint and oxfmt.
 
-  # nix-darwin
-  modules = [ inputs.halo.darwinModules.default { services.halo.enable = true; } ];
-
-  # or home-manager
-  imports = [ inputs.halo.homeManagerModules.default ];
-  services.halo.enable = true;   # optional: services.halo.configDir = "/Users/me/widgets";
-}
-```
-
-Either module installs `halo` and adds a launchd agent that runs `halo start` at login. The agent restarts only after a crash, so `halo quit` keeps it stopped.
-
-The package itself is `packages.<system>.default`. It downloads the release zip pinned in [`nix/release.json`](../nix/release.json), checks its hash, and wraps `halo` so it uses nixpkgs' esbuild. Nix downloads don't get the quarantine flag, so the unsigned binary runs as is. To work on halo, `nix develop` gives you esbuild and bun.
-
-Until the first release exists, `nix/release.json` has an empty hash, and building fails with a hash mismatch.
+The release workflow pins each release itself: after publishing, it runs `scripts/bump-nix.sh <version> <zip>` on the zip it just uploaded and pushes `chore(nix): pin release <version>` to `main` with the workflow's token (plain git, no third-party action). That push doesn't trigger other workflows. If `main` is protected against direct pushes, allow `github-actions[bot]` or pin by hand with `scripts/bump-nix.sh X.Y.Z` (downloads the published zip).
 
 ## Cutting a release
 
-1. Bump `IPC.version` in `Sources/IPC/Protocol.swift`, commit, tag `vX.Y.Z` and push the tag. The workflow builds the zip and publishes the GitHub release.
-2. Point the flake at the new release with `scripts/bump-nix.sh X.Y.Z`. It writes the version and hash to `nix/release.json`. Commit that file.
-3. For Homebrew, get the source tarball checksum:
+1. Bump `IPC.version` in `Sources/IPC/Protocol.swift`, commit, tag `vX.Y.Z` and push the tag. The workflow builds the zip, publishes the GitHub release and commits the Nix pin to `main`. Pull afterwards.
+2. For Homebrew, get the source tarball checksum:
    ```bash
    curl -sL https://github.com/bfpimentel/halo/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
    ```
-4. Add this to the formula, above `head`:
+3. Add this to the formula, above `head`:
    ```ruby
    url "https://github.com/bfpimentel/halo/archive/refs/tags/vX.Y.Z.tar.gz"
    sha256 "<checksum>"
    ```
-5. Commit the formula change. Users then get the new version with `brew update && brew upgrade halo`.
+4. Commit the formula change. Users then get the new version with `brew update && brew upgrade halo`.
 
 ## Checking the packages
 

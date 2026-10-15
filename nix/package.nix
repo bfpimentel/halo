@@ -2,7 +2,8 @@
 {
   lib,
   stdenvNoCC,
-  fetchzip,
+  fetchurl,
+  unzip,
   makeWrapper,
   esbuild,
   release,
@@ -12,12 +13,16 @@ stdenvNoCC.mkDerivation {
   pname = "halo";
   inherit (release) version;
 
-  src = fetchzip {
+  # The zip's own sha256 (not an unpacked-tree hash), so the release workflow can pin it with plain shasum.
+  src = fetchurl {
     url = release.url or "https://github.com/bfpimentel/halo/releases/download/v${release.version}/halo-${release.version}-macos.zip";
     hash = if release.hash == "" then lib.fakeHash else release.hash;
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    unzip
+    makeWrapper
+  ];
 
   dontConfigure = true;
   dontBuild = true;
@@ -28,6 +33,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p $out
     cp -R bin share $out/
+    install -Dm644 LICENSE $out/share/doc/halo/LICENSE
     wrapProgram $out/bin/halo \
       --set-default HALO_ESBUILD ${lib.getExe esbuild} \
       --set-default HALO_RUNTIME $out/share/halo/runtime

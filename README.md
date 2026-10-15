@@ -25,7 +25,7 @@ halo start
 ```
 
 Nix: `inputs.halo.url = "github:bfpimentel/halo"`, then `services.halo.enable = true` in nix-darwin or
-home-manager.
+home-manager. Full setup: [Nix guide](https://bfpimentel.github.io/halo/guide/getting-started.html#nix).
 
 ## Examples
 

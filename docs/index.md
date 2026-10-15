@@ -20,7 +20,7 @@ brew tap bfpimentel/halo https://github.com/bfpimentel/halo
 brew install --HEAD halo
 ```
 
-Nix: `inputs.halo.url = "github:bfpimentel/halo"` with `services.halo.enable = true` (nix-darwin or home-manager).
+Nix: `inputs.halo.url = "github:bfpimentel/halo"` with `services.halo.enable = true` (nix-darwin or home-manager). [Full setup](guide/getting-started.html#nix).
 
 ## A widget
 
