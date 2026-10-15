@@ -136,6 +136,9 @@ Point AeroSpace's `exec-on-workspace-change` at `halo trigger aerospace.workspac
 ([setup](https://bfpimentel.github.io/halo/guide/external-signals.html#aerospace)). More in
 [`examples/`](examples/README.md).
 
+Widgets from other users are in
+[Show and tell](https://github.com/bfpimentel/halo/discussions/categories/show-and-tell). Built something? Share it there.
+
 ## CLI
 
 | Command                                                | Does                                     |

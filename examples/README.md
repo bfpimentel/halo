@@ -13,3 +13,5 @@ Edits hot-reload.
 | [`animation`](animation/main.tsx) | Every animation layer, on timers: style transitions with springs, keyframes, enter/exit on list items and on a surface, layout transitions, and a JS `tween`.                                        |
 
 Start your own with `halo init` (creates `~/.config/halo` with a starter `main.tsx` and a `tsconfig.json` for editor types).
+
+More widgets, shared by users: [Show and tell](https://github.com/bfpimentel/halo/discussions/categories/show-and-tell).

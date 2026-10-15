@@ -1,0 +1,61 @@
+title: "[Widget] "
+labels: ["widget"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share something you built with halo. Screenshots and recordings are welcome; keep the code
+        inside the `<details>` block so the thread stays easy to browse.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What it does
+      placeholder: A top bar with AeroSpace workspaces, battery and a volume OSD.
+    validations:
+      required: true
+
+  - type: textarea
+    id: demo
+    attributes:
+      label: Demo
+      description: Drag in a screenshot, GIF or video.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: halo version
+      description: Output of `halo version`.
+      placeholder: halo 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: macOS 27.0
+
+  - type: input
+    id: requires
+    attributes:
+      label: Requires
+      description: Other tools or setup it depends on (window manager, CLIs, fonts).
+      placeholder: AeroSpace, the `halo trigger` hooks from the external signals guide
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code
+      description: Paste it between the fences; it stays collapsed in the post. For multi-file configs, link a repo or gist instead.
+      value: |
+        <details>
+        <summary>main.tsx</summary>
+
+        ```tsx
+
+        ```
+
+        </details>
