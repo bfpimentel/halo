@@ -1,0 +1,72 @@
+name: Bug report
+description: Something renders, places, updates or behaves wrong.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead. Screenshots or recordings help a lot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal config
+      description: The smallest `main.tsx` that shows the bug, plus any steps (`halo trigger …`, display changes).
+      value: |
+        <details>
+        <summary>main.tsx</summary>
+
+        ```tsx
+
+        ```
+
+        </details>
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: halo version
+      description: Output of `halo version`.
+      placeholder: halo 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: macOS 27.0, MacBook Pro M3 (notch) + external 4K display
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed with
+      options:
+        - Homebrew
+        - Nix (nix-darwin module)
+        - Nix (home-manager module)
+        - Nix (other)
+        - Built from source
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Relevant lines from `halo log` (reproduce the bug while it runs).
+      render: text
+
+  - type: textarea
+    id: inspect
+    attributes:
+      label: halo inspect
+      description: For placement or layout bugs, the output of `halo inspect` while the bug is on screen.
+      render: json

@@ -1,0 +1,42 @@
+name: Feature request
+description: A primitive, style prop, service or command a real widget needs.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        halo keeps its API small: things get added when a widget needs them. Out of scope by design:
+
+        - window management (tiling, moving other apps' windows) and global hotkeys: your WM does those
+        - reserving screen space, or replacing system UI (notifications, the Dock, the volume HUD)
+        - widgets over fullscreen apps, or on several native Spaces
+        - private macOS APIs in core features
+
+  - type: textarea
+    id: widget
+    attributes:
+      label: The widget
+      description: What you're building and where halo gets in the way. Mockups welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you'd like to write. A TSX sketch is ideal.
+      render: tsx
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: What you do today, if anything (`poll`, `halo trigger`, a script).
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This isn't in the out-of-scope list above.
+          required: true
