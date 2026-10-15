@@ -47,6 +47,14 @@ public struct Bundler: Sendable {
         return Bundler(esbuild: URL(fileURLWithPath: esbuild), runtimeSources: runtime.appendingPathComponent("src"))
     }
 
+    /// How a source-map path (relative to the config directory) should read in errors: the config's own files stay
+    /// relative, halo's runtime becomes `halo/<file>`.
+    public func displayName(forSource source: String, configDirectory: URL) -> String {
+        let absolute = URL(fileURLWithPath: source, relativeTo: configDirectory).standardizedFileURL.path
+        let runtime = runtimeSources.standardizedFileURL.path + "/"
+        return absolute.hasPrefix(runtime) ? "halo/" + absolute.dropFirst(runtime.count) : source
+    }
+
     public func build(configDirectory: URL) throws -> String {
         let main = configDirectory.appendingPathComponent("main.tsx").path
         let quotedMain = String(decoding: try JSONEncoder().encode(main), as: UTF8.self)
@@ -57,6 +65,7 @@ public struct Bundler: Sendable {
         """
         let process = Process()
         process.executableURL = esbuild
+        process.currentDirectoryURL = configDirectory
         process.arguments = [
             "--bundle",
             "--format=iife",
@@ -68,6 +77,8 @@ public struct Bundler: Sendable {
             "--alias:halo=\(runtimeSources.path)",
             "--loader=ts",
             "--sourcefile=halo-entry.ts",
+            "--sourcemap=inline",
+            "--sources-content=false",
             "--log-level=error",
             "--color=false",
         ]

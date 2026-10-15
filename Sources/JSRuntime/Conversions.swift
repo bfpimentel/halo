@@ -20,12 +20,16 @@ enum Conversions {
         var name: String?
         var defaultHidden = false
         var attach: Attachment?
+        var enter: Transition?
+        var exit: Transition?
     }
 
     static func surfaceOptions(_ value: JSValue) -> SurfaceOptions {
         var options = SurfaceOptions()
         if let name = value.forProperty("name"), name.isString { options.name = name.toString() }
         options.defaultHidden = value.forProperty("defaultHidden")?.toBool() ?? false
+        options.enter = value.forProperty("enter").flatMap { AnimationConversions.transition($0, key: "from") }
+        options.exit = value.forProperty("exit").flatMap { AnimationConversions.transition($0, key: "to") }
         if let attach = value.forProperty("attach"), attach.isObject, let node = attach.forProperty("node"), node.isNumber {
             let side: Placement.Side = switch attach.forProperty("side")?.toString() {
             case "above": .above
@@ -74,6 +78,20 @@ enum Conversions {
             node.style.radius = number(value) ?? defaults.radius
         case "opacity":
             node.style.opacity = Float(number(value) ?? CGFloat(defaults.opacity))
+        case "scale":
+            node.style.scale = number(value) ?? defaults.scale
+        case "rotate":
+            node.style.rotate = number(value) ?? defaults.rotate
+        case "translateX":
+            node.style.translateX = number(value) ?? defaults.translateX
+        case "translateY":
+            node.style.translateY = number(value) ?? defaults.translateY
+        case "origin":
+            let point = value.isArray ? value.toArray().compactMap { ($0 as? NSNumber).map { CGFloat($0.doubleValue) } } : []
+            node.style.originX = point.count == 2 ? point[0] : defaults.originX
+            node.style.originY = point.count == 2 ? point[1] : defaults.originY
+        case "transition":
+            node.transitions = AnimationConversions.transitions(value)
         case "color", "fontSize", "fontWeight", "fontFamily":
             if let text = node as? Text {
                 applyTextStyle(key, value, font: &text.font, color: &text.color)
@@ -117,6 +135,10 @@ enum Conversions {
             input.placeholder = value.isString ? value.toString() : ""
         case (let input as Input, "autofocus"):
             input.autofocus = value.toBool()
+        case (_, "enter"):
+            node.enter = AnimationConversions.transition(value, key: "from")
+        case (_, "exit"):
+            node.exit = AnimationConversions.transition(value, key: "to")
         default:
             Log.warn("unknown prop \"\(key)\" for \(type(of: node))")
         }

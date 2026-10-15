@@ -70,6 +70,17 @@ enum Bridge {
         let focus: @convention(block) (Int) -> Void = { id in
             MainActor.assumeIsolated { runtime?.focusNode(id) }
         }
+        let animate: @convention(block) (Int, JSValue, JSValue, JSValue) -> String = { id, tracks, options, done in
+            nonisolated(unsafe) var key = ""
+            MainActor.assumeIsolated { key = runtime?.animate(id, tracks, options, done) ?? "" }
+            return key
+        }
+        let cancelAnimation: @convention(block) (Int, String) -> Void = { id, key in
+            MainActor.assumeIsolated { runtime?.cancelAnimation(id, key) }
+        }
+        let setFrames: @convention(block) (Int, Bool) -> Void = { id, enabled in
+            MainActor.assumeIsolated { runtime?.setFrames(id, enabled) }
+        }
         let formatDate: @convention(block) (String, Double) -> String = { pattern, ms in
             MainActor.assumeIsolated { runtime?.formatDate(pattern, ms) ?? "" }
         }
@@ -92,6 +103,9 @@ enum Bridge {
         define("listen", listen)
         define("setVisibility", setVisibility)
         define("focus", focus)
+        define("animate", animate)
+        define("cancelAnimation", cancelAnimation)
+        define("setFrames", setFrames)
         define("formatDate", formatDate)
         context.setObject(native, forKeyedSubscript: "__native" as NSString)
     }

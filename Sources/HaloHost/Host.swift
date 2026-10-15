@@ -15,6 +15,7 @@ final class Host {
     private var runtime: Runtime?
     private var lastEvents: [String: [String: String]] = [:]
     private var visibility = Visibility()
+    private lazy var errors = ErrorPanel(backend: backend)
 
     init(configDirectory: URL, bundler: Bundler) {
         self.configDirectory = configDirectory
@@ -39,18 +40,21 @@ final class Host {
             script = try bundler.build(configDirectory: configDirectory)
         } catch {
             Log.error("build failed, keeping the previous config:\n\(error)")
+            showError(title: "halo · build failed (previous config still running)", message: "\(error)")
             return false
         }
 
+        errors.dismiss()
         disposeRuntime()
         let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), events: lastEvents, host: self)
         runtime = next
-        next.evaluate(script, sourceURL: configDirectory.appendingPathComponent("main.tsx"))
+        next.evaluate(script) { [bundler, configDirectory] in bundler.displayName(forSource: $0, configDirectory: configDirectory) }
         Log.info("loaded \(configDirectory.path) in \(Int(Date().timeIntervalSince(started) * 1000)) ms (\(next.counts))")
         return true
     }
 
     func shutdown() {
+        errors.dismiss()
         disposeRuntime()
         server?.stop()
         server = nil
@@ -83,6 +87,10 @@ final class Host {
             } catch {
                 return Response(ok: false, error: "\(error)")
             }
+        case .inspect:
+            guard let runtime else { return Response(ok: false, error: "no config loaded") }
+            let data = try? JSONSerialization.data(withJSONObject: runtime.inspect(), options: [.prettyPrinted, .sortedKeys])
+            return Response(ok: true, output: data.map { String(decoding: $0, as: UTF8.self) })
         case .reload:
             return reload() ? .success : Response(ok: false, error: "build failed; see `halo log`")
         case .quit:
@@ -96,6 +104,15 @@ final class Host {
 }
 
 extension Host: RuntimeHost {
+    func report(error: String) {
+        showError(title: "halo · error in config", message: error)
+    }
+
+    fileprivate func showError(title: String, message: String) {
+        guard let screen = (screens?.all ?? Screens.snapshot()).first else { return }
+        errors.show(title: title, message: message, on: screen)
+    }
+
     func isHidden(name: String?) -> Bool {
         visibility.isHidden(name: name)
     }

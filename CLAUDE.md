@@ -115,13 +115,19 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
   - `<Shape>` (later): paths for graphs and progress rings
 - Layout: **Yoga** (C API) owns the layout. After each layout pass, frames are pushed to CALayers inside one `CATransaction` with `setDisableActions(true)`.
 - Styling is a **typed props object**, not CSS: `style={{ padding: 8, gap: 6, background: "#1e1e2e", radius: 8 }}`. Keep the vocabulary to what's in the table above until a real widget needs more.
-- Animation: explicit only (`animate(signal, { duration, curve })` or a `transition` prop). Core Animation does the interpolation.
+- **Animation** (fully customizable by design; Core Animation interpolates everything except `onFrame`/`tween`):
+  - Transforms are style props: `scale`, `rotate` (degrees), `translateX/Y`, `origin` ([x, y] fractions, default center). Layers are positioned via bounds + position (never `frame`, undefined under transforms); hit-testing uses the untransformed `layoutFrame`.
+  - `style.transition`: per animatable prop (`opacity`, `background`, `borderColor`, `borderWidth`, `radius`, `scale`, `rotate`, `translateX/Y`), `all`, and `layout` (frame changes). Value: ms or `{ duration, curve, delay }`.
+  - Curves: `linear`, `ease-in`, `ease-out` (default), `ease-in-out`, cubic-bezier `[x1, y1, x2, y2]`, `"spring"` or `{ stiffness, damping, mass }` (`CASpringAnimation`; springs ignore `duration`).
+  - `enter={{ from: {…} }}` / `exit={{ to: {…} }}` on nodes (enter on first layout; on removal the node leaves the layout at once and its layer stays until the exit ends) and on surfaces (every show/hide, including `halo show/hide`; a hiding surface stays on screen until its exit finishes).
+  - `animate(node, { rotate: [0, 360] }, { duration, curve, delay, repeat (Infinity loops), alternate, offsets, fill })` → `{ cancel(), finished }`, cancelled with its owner.
+  - `onFrame((time, dt) => …)` runs JS on a shared display link only while subscribed; `tween(() => target, timing)` follows a number with JS curves (`runtime/src/easing.ts`, tested with bun).
 - Hit-testing: native, against layer frames (`Node.hitPath`). Events (`onClick`, `onScroll`, `onHover`) dispatch to JS through `__halo.dispatch(id, kind, payload)` and bubble to the closest listening ancestor. Click = mouse down and up on the same listener. Surfaces with `input: passthrough` get none. `ref={(node) => …}` hands out a node (for `attach` and `focus(node)`).
 
 ### 5. JS runtime
 
 - **JavaScriptCore** (`JSContext`, `JSExport`), the public system framework. No bundled engine.
-- **TS/TSX compilation:** esbuild, run by the host as a short-lived subprocess at load and reload. It's resolved from `HALO_ESBUILD`, then `PATH`, then `runtime/node_modules/.bin/esbuild` in dev. The host feeds esbuild a generated entry (`import { mount } from "halo/internal"` + the config's absolute `main.tsx`) and gets back one IIFE script; `halo` is aliased to `runtime/src`, so `halo/<module>` maps to `runtime/src/<module>.ts`. Not done yet: source maps (errors currently point at bundle lines; planned for M7).
+- **TS/TSX compilation:** esbuild, run by the host as a short-lived subprocess at load and reload. It's resolved from `HALO_ESBUILD`, then `PATH`, then `runtime/node_modules/.bin/esbuild` in dev. The host feeds esbuild a generated entry (`import { mount } from "halo/internal"` + the config's absolute `main.tsx`) and gets back one IIFE script; `halo` is aliased to `runtime/src`, so `halo/<module>` maps to `runtime/src/<module>.ts`. esbuild emits an inline source map (`--sourcemap=inline`, run from the config dir); `JSRuntime/SourceMap.swift` decodes it and rewrites stack positions to the config's files, with halo's runtime shown as `halo/<file>`.
 - **Signals** (`runtime/src/signals.ts`): `signal`, `computed`, `effect`, `batch`, `untrack`, `onCleanup`, `root`, `getOwner`/`runWithOwner`. `signal(v)` returns an accessor with `.set` / `.update`. Glitch-free (mark DIRTY/CHECK, then pull), and effects re-collect dependencies on every run. No framework dependency. A throwing effect is logged and doesn't stop others. One JS tick produces one compositor commit because layout is coalesced per run-loop pass on the Swift side.
 - **JSX** (`runtime/src/components.ts`): components run once, untracked. A function child is a reactive slot (`{() => list().map(...)}`) whose previous nodes are destroyed on re-run. Strings inside `<Box>` become `<Text>`. In `<Text>`, only function children are reactive: write `{() => `WS ${ws()}`}`, not `WS {ws()}`. Text styling (`color`, `fontSize`, `fontWeight`, `fontFamily`) lives in `style`. `<Image>` takes `symbol`, `app` (bundle id) or `file`, plus `size` and `color`. A `<Surface>` with exactly one node child uses it as its root (so it fills the surface); otherwise its children are wrapped in a `<Box>`.
 - **Bridge** (`runtime/src/native.ts` ↔ `Sources/JSRuntime/Bridge.swift`): `globalThis.__native` with integer handles for nodes, surfaces and timers. Each `Runtime` (one per load) owns a fresh `JSContext` plus registries of everything it created. On reload it calls the config's root `dispose` first, logs anything still alive as a leak, then force-releases it.
@@ -132,7 +138,7 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
   - `poll(cmd, intervalMs)` → signal (convenience)
   - `console.*` → host log
 - **Hot reload:** watch the config dir, rebuild, dispose the old root (run all cleanups, tear down surfaces), mount the new one. Don't try to preserve state in v1.
-- **Errors:** a throwing widget must not kill the runtime. Show an error surface or log entry and keep the others alive.
+- **Errors:** a throwing widget must not kill the runtime: effects, event handlers and each `<PerScreen>` instance catch and report. Uncaught exceptions and `console.error` go to the log and to a native error panel (`HaloHost/ErrorPanel.swift`, bottom-right, only the config's own stack frames, click to dismiss). Build failures show there too, and the previous config keeps running. A successful reload clears it.
 
 ### 6. Services
 
@@ -159,7 +165,7 @@ Services are lazy: the native observer starts when a signal gets its first subsc
   on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']   # optional: keeps "empty" fresh
   ```
 - `halo show|hide|toggle <name ...>` or `--all` (which includes unnamed surfaces). Unknown names are rejected with the list of mounted ones. Config code has the same `show/hide/toggle(name)` from `halo`. Rules live in `HaloHost/Visibility.swift`; the effective visibility is the widget's own `visible` AND not hidden by name.
-- Other commands: `halo reload`, `halo quit` (disposes the config, removes the socket), `halo log` (`tail -F` of `$TMPDIR/halo.log`, truncated at each start). Not yet: `halo inspect` (M7).
+- Other commands: `halo reload`, `halo quit` (disposes the config, removes the socket), `halo log` (`tail -F` of `$TMPDIR/halo.log`, truncated at each start). `halo inspect` prints surfaces (name, frame, shown, input, layer, listeners) and node trees as JSON. `halo init [dir]` creates a config dir with a starter `main.tsx` and a `tsconfig.json` whose `paths` point at the runtime sources (editor types without a separate package; never overwrites).
 - Socket I/O happens off the main thread and requests are handled on main. Sockets are `SO_NOSIGPIPE` and the host ignores SIGPIPE: a client that hangs up early must never kill it.
 
 ## Private API policy (important)
@@ -223,7 +229,7 @@ Sources/
   Services/          # public services (M5)
   PrivateBridges/    # C/ObjC private API shims (opt-in, not created yet)
 runtime/             # TS: reactive core, signals (+externalSignal), jsx-runtime, components, services, aerospace
-examples/            # sample configs (bar, floating panel, OSD)
+examples/            # demo, signals, aerospace, launcher, animation (index: examples/README.md)
 docs/                # private-apis.md, design notes
 Tests/
 ```
@@ -231,7 +237,7 @@ Tests/
 ## Build and run
 
 - build: `swift build`
-- run dev: `swift run halo start --config examples/demo` (or `examples/aerospace`, `examples/signals`; without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr and `$TMPDIR/halo.log`.
+- run dev: `swift run halo start --config examples/demo` (or any folder listed in `examples/README.md`; without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr and `$TMPDIR/halo.log`.
 - control it: `swift run halo trigger <name> k=v`, `halo reload`, `halo quit`, `halo log`.
 - tests: `swift test` (Swift Testing: placement math, render-tree invalidation, config lifecycle/reload leaks, external signals, IPC parsing; the JSRuntime suites need esbuild) and `cd runtime && bun test` (signal graph).
 
@@ -254,7 +260,7 @@ Tests/
 4. **IPC and external signals:** `halo trigger`, hydration, AeroSpace example.
 5. **Services:** clock, battery, audio, network, frontApp.
 6. **Input:** click, scroll, hover, keyboard focus + `<Input>`, named show/hide/toggle, popup surfaces anchored to a node. Example: `examples/launcher`.
-7. **Polish:** animation, error surface, `halo inspect`, typed docs, example gallery.
+7. **Polish:** animation, error panel, source maps, `halo inspect`, `halo init` (editor types), example gallery.
 8. **(Optional, post-MVP) private:** `nowPlaying`; evaluate `SkyLightBackend` only if a concrete limitation is found.
 
 ## Open questions

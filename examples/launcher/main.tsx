@@ -52,7 +52,9 @@ function Launcher(props: { screen: ScreenInfo }) {
 
   return (
     <Surface name="launcher" defaultHidden screen={props.screen} size={{ width: 560, height: 400 }} layer="overlay" input="keyboard"
-             onFocus={() => (query.set(""), selected.set(0))} onBlur={() => hide("launcher")}>
+             onFocus={() => (query.set(""), selected.set(0))} onBlur={() => hide("launcher")}
+             enter={{ from: { opacity: 0, scale: 0.96, translateY: -8 }, curve: { stiffness: 380, damping: 28 } }}
+             exit={{ to: { opacity: 0, scale: 0.98 }, duration: 110, curve: "ease-in" }}>
       <Box style={{ padding: 12, gap: 8, background: card, radius: 18, borderWidth: 1, borderColor: "#ffffff1a" }}>
         <Box style={{ flexDirection: "row", align: "center", gap: 10, padding: [6, 8] }}>
           <Image symbol="magnifyingglass" size={18} color={muted} />
@@ -76,7 +78,7 @@ function Launcher(props: { screen: ScreenInfo }) {
             results().map((app, index) => (
               <Box
                 style={{ flexDirection: "row", align: "center", gap: 10, padding: [6, 10], radius: 8,
-                         background: () => (selected() === index ? selectedRow : "transparent") }}
+                         background: () => (selected() === index ? selectedRow : "transparent"), transition: { background: 90 } }}
                 onHover={(hovered) => hovered && selected.set(index)}
                 onClick={() => open(app)}
               >

@@ -127,3 +127,99 @@ extension Runtime {
         for entry in outside { dispatch(entry.id, "clickOutside", NSNull()) }
     }
 }
+
+// MARK: Animation
+
+extension Runtime {
+    func animate(_ id: Int, _ tracks: JSValue, _ options: JSValue, _ done: JSValue) -> String {
+        guard let node = nodes[id] else { return "" }
+        return node.animate(AnimationConversions.keyframes(tracks, options)) { [weak self] finished in
+            guard let self, !self.disposed else { return }
+            done.call(withArguments: [finished])
+        }
+    }
+
+    func cancelAnimation(_ id: Int, _ key: String) {
+        nodes[id]?.cancelAnimation(key)
+    }
+
+    /// One display link per runtime, running only while some `onFrame` callback is subscribed.
+    func setFrames(_ id: Int, _ enabled: Bool) {
+        if enabled { frameSubscribers.insert(id) } else { frameSubscribers.remove(id) }
+        updateFrameLink()
+    }
+
+    func updateFrameLink() {
+        let wanted = !disposed && !frameSubscribers.isEmpty
+        if wanted == (frameLink != nil) { return }
+        guard wanted, let screen = NSScreen.main else {
+            frameLink?.invalidate()
+            frameLink = nil
+            return
+        }
+        let ticker = FrameTicker { [weak self] timestamp in self?.tick(timestamp) }
+        let link = screen.displayLink(target: ticker, selector: #selector(FrameTicker.step(_:)))
+        link.add(to: .main, forMode: .common)
+        frameLink = link
+    }
+
+    private func tick(_ timestamp: CFTimeInterval) {
+        for id in frameSubscribers { dispatch(id, "frame", timestamp * 1000) }
+    }
+}
+
+/// Display links retain their target; this keeps the runtime out of that cycle.
+private final class FrameTicker: NSObject, @unchecked Sendable {
+    private let onFrame: @MainActor (CFTimeInterval) -> Void
+
+    init(_ onFrame: @escaping @MainActor (CFTimeInterval) -> Void) {
+        self.onFrame = onFrame
+    }
+
+    @objc func step(_ link: CADisplayLink) {
+        let timestamp = link.targetTimestamp
+        MainActor.assumeIsolated { onFrame(timestamp) }
+    }
+}
+
+// MARK: Inspection
+
+extension Runtime {
+    /// A JSON-friendly snapshot of every surface and its node tree, for `halo inspect`.
+    public func inspect() -> [String: Any] {
+        let list = surfaces.values.sorted { $0.id < $1.id }.map { entry -> [String: Any] in
+            [
+                "id": entry.id,
+                "name": entry.options.name ?? NSNull(),
+                "screen": Int(entry.config.screen),
+                "frame": Self.json(entry.surface.frame),
+                "shown": entry.shown,
+                "input": "\(entry.config.input)",
+                "layer": "\(entry.config.layer)",
+                "listens": Array(listeners[entry.id] ?? []).sorted(),
+                "root": describe(entry.root.node),
+            ]
+        }
+        return ["surfaces": list, "counts": ["nodes": counts.nodes, "surfaces": counts.surfaces, "timers": counts.timers]]
+    }
+
+    private func describe(_ node: Node) -> [String: Any] {
+        var info: [String: Any] = [
+            "type": String(describing: type(of: node)),
+            "frame": Self.json(node.layoutFrame),
+        ]
+        if let id = nodeIDs[ObjectIdentifier(node)] {
+            info["id"] = id
+            if let kinds = listeners[id] { info["listens"] = Array(kinds).sorted() }
+        }
+        if let text = node as? Text { info["text"] = text.text }
+        if let input = node as? Input { info["value"] = input.value }
+        if let image = node as? Image, let source = image.source { info["source"] = "\(source)" }
+        if !node.children.isEmpty { info["children"] = node.children.map(describe) }
+        return info
+    }
+
+    private static func json(_ rect: CGRect) -> [String: Any] {
+        ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height]
+    }
+}

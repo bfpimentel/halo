@@ -51,9 +51,3 @@ public func runHost(configPath: String?) -> Never {
     }
     exit(0)
 }
-
-private func defaultConfigDirectory() -> URL {
-    let base = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"].map(URL.init(fileURLWithPath:))
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config")
-    return base.appendingPathComponent("halo")
-}

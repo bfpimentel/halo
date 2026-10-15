@@ -35,6 +35,9 @@ import Testing
 
     @Test func simpleCommandsRejectExtraArguments() throws {
         #expect(try IPC.parse(arguments: ["reload"]) == .send(.reload))
+        #expect(try IPC.parse(arguments: ["inspect"]) == .send(.inspect))
+        #expect(try IPC.parse(arguments: ["init"]) == .initialize(directory: nil))
+        #expect(try IPC.parse(arguments: ["init", "~/widgets"]) == .initialize(directory: "~/widgets"))
         #expect(try IPC.parse(arguments: []) == .help)
         #expect(throws: UsageError.self) { try IPC.parse(arguments: ["quit", "now"]) }
         #expect(throws: UsageError.self) { try IPC.parse(arguments: ["restart"]) }

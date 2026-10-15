@@ -15,15 +15,19 @@ public enum Request: Codable, Equatable, Sendable {
     case visibility(VisibilityAction, VisibilityTarget)
     case reload
     case quit
+    case inspect
 }
 
 public struct Response: Codable, Equatable, Sendable {
     public var ok: Bool
     public var error: String?
+    /// Printed by the CLI (e.g. `halo inspect`'s JSON).
+    public var output: String?
 
-    public init(ok: Bool, error: String? = nil) {
+    public init(ok: Bool, error: String? = nil, output: String? = nil) {
         self.ok = ok
         self.error = error
+        self.output = output
     }
 
     public static let success = Response(ok: true)
@@ -31,6 +35,7 @@ public struct Response: Codable, Equatable, Sendable {
 
 public enum Command: Equatable, Sendable {
     case start(config: String?)
+    case initialize(directory: String?)
     case send(Request)
     case log
     case help
@@ -45,10 +50,12 @@ public enum IPC {
     usage: halo <command>
 
       start [--config <dir>]           run the host in the foreground (default config: $XDG_CONFIG_HOME/halo)
+      init [<dir>]                     create a config dir with a starter main.tsx and editor types
       trigger <name> [key=value ...]   emit an external signal event
       show|hide|toggle <name ...>      show, hide or toggle surfaces by name (`--all` for every surface)
       reload                           rebuild and remount the config
       quit                             stop the host
+      inspect                          print the running surfaces and node trees as JSON
       log                              follow the host log
     """
 
@@ -93,6 +100,11 @@ public enum IPC {
                 return .send(.visibility(action, .all))
             }
             return .send(.visibility(action, .names(rest)))
+        case "init":
+            guard rest.count <= 1 else { throw UsageError(description: "usage: halo init [<dir>]") }
+            return .initialize(directory: rest.first)
+        case "inspect" where rest.isEmpty:
+            return .send(.inspect)
         case "reload" where rest.isEmpty:
             return .send(.reload)
         case "quit" where rest.isEmpty:

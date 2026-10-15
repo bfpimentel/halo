@@ -7,6 +7,8 @@ import Render
 @MainActor
 public protocol RuntimeHost: AnyObject {
     func isHidden(name: String?) -> Bool
+    /// An uncaught error or `console.error` from the config, with positions mapped to its own files.
+    func report(error: String)
     /// Called when a surface first appears, before it's shown.
     func register(name: String, defaultHidden: Bool)
     /// `show` / `hide` / `toggle` requested by config code.
@@ -33,6 +35,7 @@ public final class Runtime {
         var config: SurfaceConfig
         var options: Conversions.SurfaceOptions
         var shown = false
+        var exiting = false
         var pressed: Int?
         var hovered: Set<Int> = []
 
@@ -54,15 +57,19 @@ public final class Runtime {
     var surfaces: [Int: SurfaceEntry] = [:]
     var listeners: [Int: Set<String>] = [:]
     var mouseMonitors: [Any] = []
+    var frameSubscribers: Set<Int> = []
+    var frameLink: CADisplayLink?
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
     private var processes: [Int: (process: Process, callback: JSValue)] = [:]
     private var formatters: [String: DateFormatter] = [:]
     private var lastEvents: [String: [String: String]]
     private var nextID = 1
+    private var sourceMap: SourceMap?
+    static let bundleName = "halo-bundle.js"
     var disposed = false
 
     public var counts: Counts {
-        Counts(nodes: nodes.count, surfaces: surfaces.count, timers: timers.count)
+        Counts(nodes: nodes.count, surfaces: surfaces.count, timers: timers.count + frameSubscribers.count)
     }
 
     /// `events` holds the latest payload per external event name, so a fresh load starts from known state.
@@ -75,17 +82,31 @@ public final class Runtime {
         lastEvents = events
         context = JSContext()
         context.name = "halo"
-        context.exceptionHandler = { _, exception in
+        context.exceptionHandler = { [weak self] _, exception in
             guard let exception else { return }
-            let stack = exception.forProperty("stack")?.toString() ?? ""
-            Log.error("\(exception.toString() ?? "unknown error")\n\(stack)")
+            MainActor.assumeIsolated {
+                var message = exception.toString() ?? "unknown error"
+                if let line = exception.forProperty("line"), line.isNumber, let column = exception.forProperty("column"), column.isNumber {
+                    message += " (\(Runtime.bundleName):\(line.toInt32()):\(column.toInt32()))"
+                }
+                let stack = exception.forProperty("stack").flatMap { $0.isString ? $0.toString() : nil } ?? ""
+                self?.reportError(stack.isEmpty ? message : "\(message)\n\(stack)")
+            }
         }
         context.setObject(JSValue(newObjectIn: context), forKeyedSubscript: "__halo" as NSString)
         Bridge.install(in: context, runtime: self)
     }
 
-    public func evaluate(_ script: String, sourceURL: URL? = nil) {
-        context.evaluateScript(script, withSourceURL: sourceURL)
+    public func evaluate(_ script: String, displaySource: (String) -> String = { $0 }) {
+        sourceMap = SourceMap(inlineIn: script)?.renamingSources(displaySource)
+        context.evaluateScript(script, withSourceURL: URL(string: Self.bundleName))
+    }
+
+    /// Maps bundle positions to the config's files, logs, and tells the host (which may show it on screen).
+    func reportError(_ text: String) {
+        let mapped = sourceMap?.rewrite(text, bundleName: Self.bundleName) ?? text
+        Log.error(mapped)
+        host?.report(error: mapped)
     }
 
     public func screensChanged(_ infos: [ScreenInfo]) {
@@ -139,6 +160,8 @@ public final class Runtime {
         for (process, _) in processes.values where process.isRunning { process.terminate() }
         processes.removeAll()
         stopMouseMonitors()
+        frameSubscribers.removeAll()
+        updateFrameLink()
         backend.transaction {
             for entry in surfaces.values {
                 entry.root.detach()
@@ -182,12 +205,33 @@ public final class Runtime {
             entry.shown = false
             return
         }
+        if !config.visible, entry.shown, let exit = entry.options.exit {
+            guard !entry.exiting else { return }
+            entry.exiting = true
+            entry.root.node.play(exit: exit) { [weak self, weak entry] in
+                guard let self, let entry, entry.exiting else { return }
+                entry.exiting = false
+                entry.shown = false
+                self.place(entry)
+                entry.root.node.clearExit()
+            }
+            return
+        }
+        if entry.exiting, config.visible {
+            entry.exiting = false
+            entry.root.node.clearExit()
+        }
         entry.surface.update(config, screen: screen, frame: frame)
         entry.root.size = entry.surface.frame.size
         entry.root.contentsScale = screen.scale
         let appeared = config.visible && !entry.shown
         entry.shown = config.visible
-        if appeared, config.input == .keyboard { entry.surface.focus() }
+        guard appeared else { return }
+        if let enter = entry.options.enter {
+            entry.root.layoutNow()
+            entry.root.node.play(enter: enter)
+        }
+        if config.input == .keyboard { entry.surface.focus() }
     }
 
     private func fixed(_ dimension: Compositor.Dimension?) -> CGFloat {
@@ -213,7 +257,8 @@ public final class Runtime {
 
 extension Runtime {
     func log(_ level: String, _ message: String) {
-        Log.write(level == "error" ? .error : level == "warn" ? .warn : .info, "[js] \(message)")
+        if level == "error" { return reportError("[js] \(message)") }
+        Log.write(level == "warn" ? .warn : .info, "[js] \(message)")
     }
 
     func createNode(_ kind: String) -> Int {
@@ -249,11 +294,13 @@ extension Runtime {
         nodes[id]?.removeFromParent()
     }
 
+    /// Plays the node's `exit` (if any) before its layer goes away; it leaves the registry immediately.
     func destroyNode(_ id: Int) {
         guard let node = nodes.removeValue(forKey: id) else { return }
         nodeIDs[ObjectIdentifier(node)] = nil
         listeners[id] = nil
-        node.removeFromParent()
+        if let input = node as? Input { input.field.removeFromSuperview() }
+        node.remove()
     }
 
     func createSurface(_ rootID: Int, _ configValue: JSValue) -> Int {

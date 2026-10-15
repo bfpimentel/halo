@@ -20,6 +20,7 @@ func send(_ request: Request) -> Never {
         try UnixSocket.writeAll(fd, IPC.encode(request))
         let response = try IPC.decode(Response.self, from: UnixSocket.readLine(fd))
         close(fd)
+        if let output = response.output { print(output) }
         if response.ok { exit(0) }
         fail(response.error ?? "request failed")
     } catch {
@@ -44,6 +45,13 @@ do {
 }
 
 switch command {
+case .initialize(let directory):
+    do {
+        let created = try initializeConfig(at: directory)
+        print(created.isEmpty ? "nothing to do: the files already exist" : created.map { "created \($0)" }.joined(separator: "\n"))
+    } catch {
+        fail("\(error)")
+    }
 case .start(let config):
     MainActor.assumeIsolated { runHost(configPath: config) }
 case .send(let request):

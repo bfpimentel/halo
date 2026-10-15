@@ -17,6 +17,17 @@ globalThis.__halo.dispatch = (id, kind, payload) => {
   }
 };
 
+/// Registers a JS-side handler without asking the host to start delivering (for ids JS allocated itself).
+export function subscribe(id: number, kind: string, handler: Handler): () => void {
+  const byKind = handlers.get(id) ?? new Map<string, Handler>();
+  byKind.set(kind, handler);
+  handlers.set(id, byKind);
+  return () => {
+    byKind.delete(kind);
+    if (byKind.size === 0) handlers.delete(id);
+  };
+}
+
 /// Routes native `kind` events for `id` to `handler` until the current owner is disposed.
 export function listen(id: number, kind: string, handler: Handler | undefined): void {
   if (!handler) return;

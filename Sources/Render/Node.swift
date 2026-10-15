@@ -1,4 +1,4 @@
-import QuartzCore
+import AppKit
 import yoga
 
 @MainActor
@@ -9,10 +9,21 @@ public class Node {
     public private(set) weak var parent: Node?
     weak var owner: RenderRoot?
 
+    /// The frame Yoga computed, relative to the parent and ignoring transforms (what hit-testing uses).
+    public private(set) var layoutFrame: CGRect = .zero
+    private var hasLaidOut = false
+
+    /// Per-property timing (`AnimatedProperty` raw values, "all" as the fallback, "layout" for frame changes).
+    public var transitions: [String: Timing] = [:]
+    /// Played once, the first time the node is laid out.
+    public var enter: Transition?
+    /// Played when the node is removed through `remove(completion:)`; it leaves the layout at once.
+    public var exit: Transition?
+
     public var style: Style {
         didSet {
             guard style != oldValue else { return }
-            applyPaint()
+            applyPaint(from: oldValue)
             applyLayout()
             if YGNodeIsDirty(yoga) { invalidate() }
         }
@@ -34,8 +45,7 @@ public class Node {
         self.style = style
         yoga = YGNodeNew()
         layer.delegate = NoImplicitActions.shared
-        layer.anchorPoint = .zero
-        applyPaint()
+        applyPaint(from: nil)
         applyLayout()
     }
 
@@ -67,13 +77,32 @@ public class Node {
         parent.invalidate()
     }
 
+    /// Removes the node, playing `exit` first if it has one. The node leaves the layout immediately;
+    /// its layer stays where it was until the animation ends.
+    public func remove(completion: @escaping @MainActor () -> Void = {}) {
+        guard let exit, let parent, layer.superlayer != nil,
+              let index = parent.children.firstIndex(where: { $0 === self })
+        else {
+            removeFromParent()
+            return completion()
+        }
+        parent.children.remove(at: index)
+        YGNodeRemoveChild(parent.yoga, yoga)
+        self.parent = nil
+        parent.invalidate()
+        play(exit: exit) { [layer] in
+            layer.removeFromSuperlayer()
+            completion()
+        }
+    }
+
     /// This node's frame relative to the top of its tree (surface-local coordinates once mounted).
     public var frameInRoot: CGRect {
-        var frame = layer.frame
+        var frame = layoutFrame
         var ancestor = parent
         while let current = ancestor {
-            frame.origin.x += current.layer.frame.minX
-            frame.origin.y += current.layer.frame.minY
+            frame.origin.x += current.layoutFrame.minX
+            frame.origin.y += current.layoutFrame.minY
             ancestor = current.parent
         }
         return frame
@@ -81,9 +110,9 @@ public class Node {
 
     /// Nodes under `point` (in this node's own coordinates), deepest first. Later siblings are on top.
     public func hitPath(at point: CGPoint) -> [Node] {
-        guard layer.opacity > 0, CGRect(origin: .zero, size: layer.frame.size).contains(point) else { return [] }
+        guard layer.opacity > 0, CGRect(origin: .zero, size: layoutFrame.size).contains(point) else { return [] }
         for child in children.reversed() {
-            let local = CGPoint(x: point.x - child.layer.frame.minX, y: point.y - child.layer.frame.minY)
+            let local = CGPoint(x: point.x - child.layoutFrame.minX, y: point.y - child.layoutFrame.minY)
             let path = child.hitPath(at: local)
             if !path.isEmpty { return path + [self] }
         }
@@ -106,24 +135,111 @@ public class Node {
 
     func applyFrames() {
         if YGNodeGetHasNewLayout(yoga) {
-            layer.frame = CGRect(
+            let previous = hasLaidOut ? layoutFrame : nil
+            layoutFrame = CGRect(
                 x: CGFloat(YGNodeLayoutGetLeft(yoga)),
                 y: CGFloat(YGNodeLayoutGetTop(yoga)),
                 width: CGFloat(YGNodeLayoutGetWidth(yoga)),
                 height: CGFloat(YGNodeLayoutGetHeight(yoga))
             )
             YGNodeSetHasNewLayout(yoga, false)
+            updateGeometry(animatingFrom: previous)
+            if !hasLaidOut {
+                hasLaidOut = true
+                if let enter { play(enter: enter) }
+            }
         }
         for child in children { child.applyFrames() }
     }
 
-    private func applyPaint() {
+    /// Bounds and position rather than `frame`, which is undefined once the layer has a transform.
+    private func updateGeometry(animatingFrom previous: CGRect?) {
+        let oldBounds = layer.presentation()?.bounds ?? layer.bounds
+        let oldPosition = layer.presentation()?.position ?? layer.position
+        layer.anchorPoint = CGPoint(x: style.originX, y: style.originY)
+        layer.bounds = CGRect(origin: .zero, size: layoutFrame.size)
+        layer.position = CGPoint(
+            x: layoutFrame.minX + layoutFrame.width * style.originX,
+            y: layoutFrame.minY + layoutFrame.height * style.originY
+        )
+        guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return }
+        for (keyPath, from, to) in [
+            ("position", NSValue(point: oldPosition), NSValue(point: layer.position)),
+            ("bounds", NSValue(rect: oldBounds), NSValue(rect: layer.bounds)),
+        ] {
+            let animation = timing.basic(keyPath)
+            animation.fromValue = from
+            animation.toValue = to
+            layer.add(animation, forKey: "layout.\(keyPath)")
+        }
+    }
+
+    private func applyPaint(from old: Style?) {
         layer.backgroundColor = style.background
         layer.borderColor = style.borderColor
         layer.borderWidth = style.borderWidth
         layer.cornerRadius = style.radius
         layer.cornerCurve = .continuous
         layer.opacity = style.opacity
+        layer.transform = style.transform
+        if let old, old.originX != style.originX || old.originY != style.originY { updateGeometry(animatingFrom: nil) }
+
+        guard let old, !transitions.isEmpty else { return }
+        for property in AnimatedProperty.allCases {
+            guard let timing = transitions[property.rawValue] ?? transitions["all"] else { continue }
+            let from = property.value(in: old)
+            let to = property.value(in: style)
+            guard from != to else { continue }
+            let animation = timing.basic(property.keyPath)
+            animation.fromValue = layer.presentation()?.value(forKeyPath: property.keyPath) ?? from.layerValue(for: property)
+            animation.toValue = to.layerValue(for: property)
+            layer.add(animation, forKey: property.rawValue)
+        }
+    }
+
+    /// Animates from `enter.values` to the current style.
+    public func play(enter: Transition) {
+        for (property, from) in enter.values {
+            let animation = enter.timing.basic(property.keyPath)
+            animation.fromValue = from.layerValue(for: property)
+            animation.toValue = property.value(in: style).layerValue(for: property)
+            layer.add(animation, forKey: "enter.\(property.rawValue)")
+        }
+    }
+
+    /// Animates from the current presentation to `exit.values` and holds there until `completion`.
+    public func play(exit: Transition, completion: @escaping @MainActor () -> Void) {
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { MainActor.assumeIsolated { completion() } }
+        for (property, to) in exit.values {
+            let animation = exit.timing.basic(property.keyPath)
+            animation.fromValue = layer.presentation()?.value(forKeyPath: property.keyPath)
+                ?? property.value(in: style).layerValue(for: property)
+            animation.toValue = to.layerValue(for: property)
+            animation.fillMode = .forwards
+            animation.isRemovedOnCompletion = false
+            layer.add(animation, forKey: "exit.\(property.rawValue)")
+        }
+        CATransaction.commit()
+    }
+
+    /// Drops held exit frames so the layer shows its style again (e.g. a surface shown after hiding).
+    public func clearExit() {
+        for property in AnimatedProperty.allCases { layer.removeAnimation(forKey: "exit.\(property.rawValue)") }
+    }
+
+    /// Plays keyframes on top of the style; returns a key for `cancelAnimation`.
+    @discardableResult
+    public func animate(_ keyframes: Keyframes, completion: @escaping @MainActor (Bool) -> Void = { _ in }) -> String {
+        let key = "keyframes.\(UUID().uuidString)"
+        let group = keyframes.animation()
+        group.delegate = AnimationCompletion(completion)
+        layer.add(group, forKey: key)
+        return key
+    }
+
+    public func cancelAnimation(_ key: String) {
+        layer.removeAnimation(forKey: key)
     }
 
     /// Yoga only marks the node dirty for values that actually changed.

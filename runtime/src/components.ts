@@ -1,3 +1,4 @@
+import type { EnterTransition, ExitTransition, Transitions } from "./animation";
 import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "./events";
 import { reportError } from "./host";
 import { native, type ScreenInfo } from "./native";
@@ -30,6 +31,15 @@ export interface BoxStyle {
   borderWidth?: number;
   radius?: number;
   opacity?: number;
+  scale?: number;
+  /// Degrees, clockwise.
+  rotate?: number;
+  translateX?: number;
+  translateY?: number;
+  /// Pivot for scale/rotate as fractions of the node's size; defaults to the center, [0.5, 0.5].
+  origin?: [x: number, y: number];
+  /// Animate changes instead of jumping: `{ opacity: 150, scale: { duration: 300, curve: "spring" }, layout: 200 }`.
+  transition?: Transitions;
 }
 
 export interface TextStyle extends BoxStyle {
@@ -47,6 +57,10 @@ function read<T>(value: Reactive<T>): T {
 
 /// Event props shared by Box, Text and Image. Events bubble to the closest ancestor listening for them.
 export interface Interactive {
+  /// Played once, when the node first appears: `{ from: { opacity: 0, translateY: 8 }, duration: 200 }`.
+  enter?: EnterTransition;
+  /// Played when the node is removed (e.g. a list item going away); it leaves the layout right away.
+  exit?: ExitTransition;
   onClick?: (event: ClickEvent) => void;
   onScroll?: (event: ScrollEvent) => void;
   onHover?: (hovered: boolean) => void;
@@ -54,6 +68,8 @@ export interface Interactive {
 }
 
 function wire(node: NativeNode, props: Interactive): void {
+  if (props.enter) native.setProp(node.id, "enter", props.enter);
+  if (props.exit) native.setProp(node.id, "exit", props.exit);
   listen(node.id, "click", props.onClick);
   listen(node.id, "scroll", props.onScroll);
   listen(node.id, "hover", props.onHover);
@@ -215,6 +231,10 @@ export interface SurfaceProps {
   onBlur?: () => void;
   /// A click anywhere outside this surface, in any app.
   onClickOutside?: () => void;
+  /// Played on the content every time the surface appears (including `halo show`).
+  enter?: EnterTransition;
+  /// Played before the surface hides; it stays on screen until the animation ends.
+  exit?: ExitTransition;
   screen: Reactive<number | ScreenInfo>;
   anchor?: Reactive<Edge[]>;
   margins?: Reactive<Spacing>;
@@ -246,6 +266,8 @@ export function Surface(props: SurfaceProps): null {
       name: props.name,
       defaultHidden: props.defaultHidden,
       attach: attachment(props.attach),
+      enter: props.enter,
+      exit: props.exit,
     };
     if (id === 0) id = native.createSurface(content.id, config);
     else native.updateSurface(id, config);

@@ -3,4 +3,6 @@ export type { Attachment, BoxStyle, Edge, Element, Interactive, NativeNode, Reac
 export { hide, show, toggle } from "./events";
 export type { ClickEvent, KeyEvent, ScrollEvent } from "./events";
 export { exec, poll, sh } from "./host";
+export { animate, onFrame, tween } from "./animation";
+export type { Animatable, Animation, Curve, EnterTransition, ExitTransition, KeyframeOptions, KeyframeTracks, Timing, Transitions } from "./animation";
 export type { ExecResult, Rect, ScreenInfo } from "./native";
