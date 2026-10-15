@@ -21,7 +21,9 @@ public struct Bundler: Sendable {
         let checkoutRuntime = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("runtime")
-        let executableDir = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent()
+        // The real binary, not the PATH symlink: Homebrew links bin/halo into the prefix but keeps share/ in the Cellar.
+        let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+        let executableDir = executable.resolvingSymlinksInPath().deletingLastPathComponent()
 
         let runtimeCandidates = [
             environment["HALO_RUNTIME"].map(URL.init(fileURLWithPath:)),
@@ -45,6 +47,14 @@ public struct Bundler: Sendable {
         }
 
         return Bundler(esbuild: URL(fileURLWithPath: esbuild), runtimeSources: runtime.appendingPathComponent("src"))
+    }
+
+    /// `runtimeSources` without Homebrew's versioned Cellar directory (`…/Cellar/halo/<version>/…` → `…/opt/halo/…`),
+    /// so paths written into user files (tsconfig) survive upgrades.
+    public var stableRuntimeSources: String {
+        let path = runtimeSources.path
+        guard let range = path.range(of: #"/Cellar/halo/[^/]+/"#, options: .regularExpression) else { return path }
+        return path.replacingCharacters(in: range, with: "/opt/halo/")
     }
 
     /// How a source-map path (relative to the config directory) should read in errors: the config's own files stay

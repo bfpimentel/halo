@@ -58,6 +58,8 @@ case .send(let request):
     send(request)
 case .log:
     followLog()
+case .version:
+    print("halo \(IPC.version)")
 case .help:
     print(IPC.usage)
 }

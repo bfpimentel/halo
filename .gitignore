@@ -9,3 +9,11 @@ DerivedData/
 
 # runtime/ (TypeScript)
 node_modules/
+
+# release zips (scripts/package.sh)
+dist/
+
+# nix build output
+result
+
+CLAUDE.md

@@ -38,6 +38,7 @@ public enum Command: Equatable, Sendable {
     case initialize(directory: String?)
     case send(Request)
     case log
+    case version
     case help
 }
 
@@ -46,6 +47,8 @@ public struct UsageError: Error, Equatable, CustomStringConvertible {
 }
 
 public enum IPC {
+    public static let version = "0.1.0"
+
     public static let usage = """
     usage: halo <command>
 
@@ -57,6 +60,7 @@ public enum IPC {
       quit                             stop the host
       inspect                          print the running surfaces and node trees as JSON
       log                              follow the host log
+      version                          print the version
     """
 
     /// `HALO_SOCKET` overrides the default `$TMPDIR/halo.sock` (the per-user temp dir, also under launchd).
@@ -111,6 +115,8 @@ public enum IPC {
             return .send(.quit)
         case "log" where rest.isEmpty:
             return .log
+        case "version", "--version", "-v":
+            return .version
         case "help", "-h", "--help":
             return .help
         default:

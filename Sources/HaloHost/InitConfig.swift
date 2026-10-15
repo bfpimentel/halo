@@ -6,7 +6,7 @@ import JSRuntime
 public func initializeConfig(at path: String?) throws -> [String] {
     let directory = path.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath).standardizedFileURL }
         ?? defaultConfigDirectory()
-    let runtime = try Bundler.locate().runtimeSources.path
+    let runtime = try Bundler.locate().stableRuntimeSources
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
     let files: [(String, String)] = [

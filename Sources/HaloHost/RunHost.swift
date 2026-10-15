@@ -24,6 +24,7 @@ public func runHost(configPath: String?) -> Never {
         exit(1)
     }
     Log.mirror(to: IPC.logPath)
+    Log.info("halo \(IPC.version) · config \(directory.path) · runtime \(bundler.runtimeSources.path) · esbuild \(bundler.esbuild.path)")
     signal(SIGPIPE, SIG_IGN)
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
