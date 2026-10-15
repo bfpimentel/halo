@@ -1,10 +1,13 @@
-import type { Element as HaloElement } from "./components";
-import { untrack } from "./reactive";
+import type { Element as HaloElement } from "halo/components";
+import { untrack } from "halo/reactive";
 
 type Component<P> = (props: P) => HaloElement;
 
 export function jsx<P>(type: Component<P>, props: P): HaloElement {
-  if (typeof type !== "function") throw new Error(`halo: unknown element <${String(type)}>; use the components exported by "halo"`);
+  if (typeof type !== "function")
+    throw new Error(
+      `halo: unknown element <${String(type)}>; use the components exported by "halo"`,
+    );
   return untrack(() => type(props));
 }
 

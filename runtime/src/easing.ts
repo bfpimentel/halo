@@ -27,19 +27,29 @@ const named: Record<string, [number, number, number, number]> = {
 /// The spring a curve describes, or undefined for time-based curves.
 export function springOf(curve: Curve | undefined): Spring | undefined {
   if (curve === "spring") return defaultSpring;
-  if (curve && typeof curve === "object" && !Array.isArray(curve)) return { ...defaultSpring, ...curve };
+  if (curve && typeof curve === "object" && !Array.isArray(curve))
+    return { ...defaultSpring, ...curve };
   return undefined;
 }
 
 /// Maps progress 0…1 to eased progress, CSS cubic-bezier semantics.
 export function easing(curve: Curve | undefined = "ease-out"): (t: number) => number {
-  const points = Array.isArray(curve) ? curve : named[curve as string] ?? named["ease-out"];
+  const points = Array.isArray(curve)
+    ? curve
+    : (named[curve as string] ?? named["ease-out"]);
   return cubicBezier(...points);
 }
 
-export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number {
-  const sample = (a: number, b: number, t: number) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
-  const slope = (a: number, b: number, t: number) => 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
+export function cubicBezier(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): (t: number) => number {
+  const sample = (a: number, b: number, t: number) =>
+    ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
+  const slope = (a: number, b: number, t: number) =>
+    3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
   return (x) => {
     if (x <= 0) return 0;
     if (x >= 1) return 1;
@@ -64,7 +74,13 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t:
 }
 
 /// One semi-implicit Euler step of a damped spring pulling `value` toward `target`. `dt` in seconds.
-export function springStep(spring: Spring, value: number, velocity: number, target: number, dt: number): [number, number] {
+export function springStep(
+  spring: Spring,
+  value: number,
+  velocity: number,
+  target: number,
+  dt: number,
+): [number, number] {
   const steps = Math.max(1, Math.ceil(dt / (1 / 240)));
   const h = dt / steps;
   for (let i = 0; i < steps; i++) {

@@ -1,5 +1,5 @@
-import { native } from "./native";
-import { onCleanup, signal, type Accessor, type Signal } from "./reactive";
+import { native } from "halo/native";
+import { onCleanup, signal, type Accessor, type Signal } from "halo/reactive";
 
 interface Ticker {
   now: Signal<number>;
@@ -16,10 +16,14 @@ function ticker(resolutionMs: number): Accessor<number> {
     const created: Ticker = { now: signal(Date.now()), refs: 0, timer: 0 };
     const arm = () => {
       const now = Date.now();
-      created.timer = native.setTimer(resolutionMs - (now % resolutionMs) + 5, false, () => {
-        created.now.set(Date.now());
-        arm();
-      });
+      created.timer = native.setTimer(
+        resolutionMs - (now % resolutionMs) + 5,
+        false,
+        () => {
+          created.now.set(Date.now());
+          arm();
+        },
+      );
     };
     arm();
     tickers.set(resolutionMs, created);

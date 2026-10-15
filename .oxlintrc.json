@@ -1,0 +1,18 @@
+{
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": { "correctness": "error" },
+  "ignorePatterns": [".build/**", "dist/**", "result/**", "node_modules/**"],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["./*", "../*", "."],
+            "message": "Use an alias import (halo/... in the runtime, @/... in configs) instead of a relative path."
+          }
+        ]
+      }
+    ]
+  }
+}

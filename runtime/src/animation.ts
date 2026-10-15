@@ -1,10 +1,17 @@
-import type { NativeNode } from "./components";
-import { easing, settled, springOf, springStep, type Curve } from "./easing";
-import { subscribe } from "./events";
-import { native } from "./native";
-import { effect, getOwner, onCleanup, signal, untrack, type Accessor } from "./reactive";
+import type { NativeNode } from "halo/components";
+import { easing, settled, springOf, springStep, type Curve } from "halo/easing";
+import { subscribe } from "halo/events";
+import { native } from "halo/native";
+import {
+  effect,
+  getOwner,
+  onCleanup,
+  signal,
+  untrack,
+  type Accessor,
+} from "halo/reactive";
 
-export type { Curve } from "./easing";
+export type { Curve } from "halo/easing";
 
 /// Milliseconds, or the full form. Springs ignore `duration` and settle on their own.
 export type Timing = number | { duration?: number; curve?: Curve; delay?: number };
@@ -26,8 +33,18 @@ export interface Animatable {
 /// `style.transition`: per property, plus `all` (any paint property) and `layout` (position/size changes).
 export type Transitions = { [K in keyof Animatable | "all" | "layout"]?: Timing };
 
-export type EnterTransition = { from: Animatable; duration?: number; curve?: Curve; delay?: number };
-export type ExitTransition = { to: Animatable; duration?: number; curve?: Curve; delay?: number };
+export type EnterTransition = {
+  from: Animatable;
+  duration?: number;
+  curve?: Curve;
+  delay?: number;
+};
+export type ExitTransition = {
+  to: Animatable;
+  duration?: number;
+  curve?: Curve;
+  delay?: number;
+};
 
 export type KeyframeTracks = { [K in keyof Animatable]?: NonNullable<Animatable[K]>[] };
 
@@ -54,10 +71,17 @@ export interface Animation {
 
 /// Plays keyframes on a node on top of its style, e.g. `animate(icon, { rotate: [0, 360] }, { duration: 800, repeat: Infinity, curve: "linear" })`.
 /// Cancelled automatically when the calling component is disposed.
-export function animate(node: NativeNode, tracks: KeyframeTracks, options: KeyframeOptions = {}): Animation {
+export function animate(
+  node: NativeNode,
+  tracks: KeyframeTracks,
+  options: KeyframeOptions = {},
+): Animation {
   let resolve: (finished: boolean) => void = () => {};
   const finished = new Promise<boolean>((done) => (resolve = done));
-  const wire = { ...options, repeat: options.repeat === Infinity ? Number.POSITIVE_INFINITY : options.repeat };
+  const wire = {
+    ...options,
+    repeat: options.repeat === Infinity ? Number.POSITIVE_INFINITY : options.repeat,
+  };
   const key = native.animate(node.id, tracks, wire, (done) => resolve(done));
   const cancel = () => native.cancelAnimation(node.id, key);
   if (getOwner()) onCleanup(cancel);
@@ -68,7 +92,9 @@ let nextFrameID = -1;
 
 /// Calls `callback(time, dt)` (milliseconds) on every display refresh until it returns `false` or its owner is disposed.
 /// For anything Core Animation can't express. Returns a function that stops it.
-export function onFrame(callback: (time: number, dt: number) => boolean | void): () => void {
+export function onFrame(
+  callback: (time: number, dt: number) => boolean | void,
+): () => void {
   const id = nextFrameID--;
   let last: number | undefined;
   let stopped = false;

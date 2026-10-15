@@ -28,6 +28,8 @@
           packages = [
             pkgs.esbuild
             pkgs.bun
+            pkgs.oxlint
+            pkgs.oxfmt
           ];
         };
       });

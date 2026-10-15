@@ -42,6 +42,8 @@ public final class Image: Node {
         reload()
     }
 
+    public override var paintsContent: Bool { source != nil || super.paintsContent }
+
     private func reload() {
         layer.contents = load()?.layerContents(forContentsScale: contentsScale)
     }

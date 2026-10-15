@@ -12,6 +12,13 @@ public final class RenderRoot {
 
     /// Where native views (text fields) get mounted; set by whoever owns the surface.
     public var attachView: ((NSView) -> Void)?
+    /// Called after every layout pass (content size, popups anchored here, hover under a still pointer).
+    public var onLayout: (() -> Void)?
+    /// Axes sized by the content instead of `size`; see `contentSize`.
+    public var autoWidth = false
+    public var autoHeight = false
+    /// The root's laid-out size after the last pass.
+    public private(set) var contentSize: CGSize = .zero
 
     public var contentsScale: CGFloat {
         get { node.contentsScale }
@@ -36,13 +43,21 @@ public final class RenderRoot {
         LayoutScheduler.shared.schedule(self)
     }
 
+    /// `point` is in the host layer's coordinates (surface-local).
     public func hitPath(at point: CGPoint) -> [Node] {
-        node.hitPath(at: point)
+        node.hitPath(at: node.layer.convert(point, from: node.layer.superlayer))
     }
 
     public func layoutNow() {
-        YGNodeCalculateLayout(node.yoga, Float(size.width), Float(size.height), .LTR)
+        YGNodeCalculateLayout(
+            node.yoga,
+            autoWidth ? .nan : Float(size.width),
+            autoHeight ? .nan : Float(size.height),
+            .LTR
+        )
         node.applyFrames()
+        contentSize = node.layoutFrame.size
+        onLayout?()
     }
 }
 

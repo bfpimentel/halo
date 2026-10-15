@@ -116,14 +116,20 @@ public class Node {
     }
 
     /// Nodes under `point` (in this node's own coordinates), deepest first. Later siblings are on top.
+    /// Children are hit where they're drawn: their scale, rotation and translation count.
     public func hitPath(at point: CGPoint) -> [Node] {
-        guard layer.opacity > 0, CGRect(origin: .zero, size: layoutFrame.size).contains(point) else { return [] }
+        guard layer.opacity > 0, layer.bounds.contains(point) else { return [] }
         for child in children.reversed() {
-            let local = CGPoint(x: point.x - child.layoutFrame.minX, y: point.y - child.layoutFrame.minY)
+            let local = child.layer.convert(point, from: layer)
             let path = child.hitPath(at: local)
             if !path.isEmpty { return path + [self] }
         }
         return [self]
+    }
+
+    /// Whether the node draws anything at its frame (empty layout containers don't, so they let clicks through).
+    public var paintsContent: Bool {
+        style.background != nil || style.borderWidth > 0
     }
 
     public var rootOwner: RenderRoot? {
@@ -192,6 +198,8 @@ public class Node {
         if let old, old.originX != style.originX || old.originY != style.originY { updateGeometry(animatingFrom: nil) }
 
         guard let old, !transitions.isEmpty else { return }
+        var curves: [AnimatedProperty: (Double) -> CGFloat] = [:]
+        var length = 0.0
         for property in AnimatedProperty.allCases {
             guard let timing = transitions[property.rawValue] ?? transitions["all"] else { continue }
             let from = property.value(in: old)
@@ -201,24 +209,34 @@ public class Node {
             animation.fromValue = layer.presentation()?.value(forKeyPath: property.keyPath) ?? from.layerValue(for: property)
             animation.toValue = to.layerValue(for: property)
             layer.add(animation, forKey: property.rawValue)
+
+            if let start = presented(property) ?? number(property, in: old), let end = number(property, in: style) {
+                curves[property] = Self.curves([property: (start, end)], timing: timing.delayed())[property]
+                length = max(length, timing.delay + timing.length)
+            }
         }
+        mirror(MirroredAnimation(curves: curves, length: length), key: "mirror.transition")
     }
 
     /// Animates from `enter.values` to the current style.
     public func play(enter: Transition) {
+        var endpoints: [AnimatedProperty: (from: CGFloat, to: CGFloat)] = [:]
         for (property, from) in enter.values {
             let animation = enter.timing.basic(property.keyPath)
             animation.fromValue = from.layerValue(for: property)
             animation.toValue = property.value(in: style).layerValue(for: property)
             layer.add(animation, forKey: "enter.\(property.rawValue)")
+            if case .number(let start) = from, let end = number(property, in: style) { endpoints[property] = (start, end) }
         }
-        mirror(enter.values, timing: enter.timing, entering: true)
+        let length = enter.timing.delay + enter.timing.length
+        mirror(MirroredAnimation(curves: Self.curves(endpoints, timing: enter.timing.delayed()), length: length), key: "mirror.enter")
     }
 
     /// Animates from the current presentation to `exit.values` and holds there until `completion`.
     public func play(exit: Transition, completion: @escaping @MainActor () -> Void) {
         CATransaction.begin()
         CATransaction.setCompletionBlock { MainActor.assumeIsolated { completion() } }
+        var endpoints: [AnimatedProperty: (from: CGFloat, to: CGFloat)] = [:]
         for (property, to) in exit.values {
             let animation = exit.timing.basic(property.keyPath)
             animation.fromValue = layer.presentation()?.value(forKeyPath: property.keyPath)
@@ -227,63 +245,22 @@ public class Node {
             animation.fillMode = .forwards
             animation.isRemovedOnCompletion = false
             layer.add(animation, forKey: "exit.\(property.rawValue)")
+            if case .number(let end) = to, let start = presented(property) ?? number(property, in: style) {
+                endpoints[property] = (start, end)
+            }
         }
-        mirror(exit.values, timing: exit.timing, entering: false)
+        let length = exit.timing.delay + exit.timing.length
+        mirror(
+            MirroredAnimation(curves: Self.curves(endpoints, timing: exit.timing.delayed()), length: length, holds: true),
+            key: "mirror.exit"
+        )
         CATransaction.commit()
     }
 
     /// Drops held exit frames so the layer shows its style again (e.g. a surface shown after hiding).
     public func clearExit() {
         for property in AnimatedProperty.allCases { layer.removeAnimation(forKey: "exit.\(property.rawValue)") }
-        for input in inputsInSubtree() { input.clearMirroredExit() }
-    }
-
-    private func inputsInSubtree() -> [Input] {
-        ((self as? Input).map { [$0] } ?? []) + children.flatMap { $0.inputsInSubtree() }
-    }
-
-    /// Text fields sit above the layer tree, so they don't inherit this node's enter/exit. Give each one the same
-    /// opacity and translation, and scale it around this node's pivot instead of its own corner: CA applies
-    /// `p' = anchor + t + s·(p − anchor)`, so pivoting around P needs an extra `t = (1 − s)·(P − anchor)`.
-    /// That term is linear in `s`, so with the same timing (springs included) the field tracks the node exactly.
-    private func mirror(_ values: [AnimatedProperty: AnimatedValue], timing: Timing, entering: Bool) {
-        let inputs = inputsInSubtree()
-        guard !inputs.isEmpty else { return }
-        func number(_ property: AnimatedProperty, _ fallback: CGFloat) -> CGFloat {
-            if case .number(let value)? = values[property] { return value }
-            return fallback
-        }
-        let rest = (s: style.scale, tx: style.translateX, ty: style.translateY, o: CGFloat(style.opacity))
-        let moved = (s: number(.scale, rest.s), tx: number(.translateX, rest.tx), ty: number(.translateY, rest.ty), o: number(.opacity, rest.o))
-        let (from, to) = entering ? (moved, rest) : (rest, moved)
-        let frame = frameInRoot
-        let pivot = CGPoint(x: frame.minX + frame.width * style.originX, y: frame.minY + frame.height * style.originY)
-        let scales = values[.scale] != nil
-
-        for input in inputs {
-            guard input.field.superview != nil, let fieldLayer = input.field.layer else { continue }
-            let field = input.field.frame
-            let anchor = CGPoint(x: field.minX + field.width * fieldLayer.anchorPoint.x, y: field.minY + field.height * fieldLayer.anchorPoint.y)
-            var tracks: [(String, CGFloat, CGFloat)] = []
-            if values[.opacity] != nil { tracks.append(("opacity", from.o, to.o)) }
-            if scales { tracks.append(("transform.scale", from.s, to.s)) }
-            if scales || values[.translateX] != nil {
-                tracks.append(("transform.translation.x", from.tx + (1 - from.s) * (pivot.x - anchor.x), to.tx + (1 - to.s) * (pivot.x - anchor.x)))
-            }
-            if scales || values[.translateY] != nil {
-                tracks.append(("transform.translation.y", from.ty + (1 - from.s) * (pivot.y - anchor.y), to.ty + (1 - to.s) * (pivot.y - anchor.y)))
-            }
-            for (keyPath, start, end) in tracks {
-                let animation = timing.basic(keyPath)
-                animation.fromValue = start
-                animation.toValue = end
-                if !entering {
-                    animation.fillMode = .forwards
-                    animation.isRemovedOnCompletion = false
-                }
-                fieldLayer.add(animation, forKey: "\(entering ? Input.mirroredEnter : Input.mirroredExit).\(keyPath)")
-            }
-        }
+        removeMirror("mirror.exit")
     }
 
     /// Plays keyframes on top of the style; returns a key for `cancelAnimation`.
@@ -293,11 +270,13 @@ public class Node {
         let group = keyframes.animation()
         group.delegate = AnimationCompletion(completion)
         layer.add(group, forKey: key)
+        mirror(keyframes.mirrored(), key: "mirror.\(key)")
         return key
     }
 
     public func cancelAnimation(_ key: String) {
         layer.removeAnimation(forKey: key)
+        removeMirror("mirror.\(key)")
     }
 
     /// Yoga only marks the node dirty for values that actually changed.

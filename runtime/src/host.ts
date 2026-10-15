@@ -1,8 +1,18 @@
-import { native, type ExecResult } from "./native";
-import { endScope, getOwner, onCleanup, runWithOwner, setErrorHandler, signal, type Accessor, type OwnerHandle } from "./reactive";
+import { native, type ExecResult } from "halo/native";
+import {
+  endScope,
+  getOwner,
+  onCleanup,
+  runWithOwner,
+  setErrorHandler,
+  signal,
+  type Accessor,
+  type OwnerHandle,
+} from "halo/reactive";
 
 function format(value: unknown): string {
-  if (value instanceof Error) return value.stack ? `${value.message}\n${value.stack}` : value.message;
+  if (value instanceof Error)
+    return value.stack ? `${value.message}\n${value.stack}` : value.message;
   if (typeof value === "string") return value;
   try {
     return JSON.stringify(value) ?? String(value);
@@ -38,14 +48,22 @@ function startTimer(ms: number, repeats: boolean, fn: () => void): number {
 
 export function installGlobals(): void {
   const timers = {
-    setTimeout: (fn: (...args: unknown[]) => void, ms = 0, ...args: unknown[]) => startTimer(ms, false, guarded(fn, args)),
-    setInterval: (fn: (...args: unknown[]) => void, ms = 0, ...args: unknown[]) => startTimer(ms, true, guarded(fn, args)),
+    setTimeout: (fn: (...args: unknown[]) => void, ms = 0, ...args: unknown[]) =>
+      startTimer(ms, false, guarded(fn, args)),
+    setInterval: (fn: (...args: unknown[]) => void, ms = 0, ...args: unknown[]) =>
+      startTimer(ms, true, guarded(fn, args)),
     clearTimeout: (id?: number) => id !== undefined && native.clearTimer(id),
     clearInterval: (id?: number) => id !== undefined && native.clearTimer(id),
     queueMicrotask: (fn: () => void) => void Promise.resolve().then(guarded(fn, [])),
   };
   Object.assign(globalThis, timers, {
-    console: { log: logger("log"), info: logger("log"), debug: logger("log"), warn: logger("warn"), error: logger("error") },
+    console: {
+      log: logger("log"),
+      info: logger("log"),
+      debug: logger("log"),
+      warn: logger("warn"),
+      error: logger("error"),
+    },
   });
   setErrorHandler(reportError);
 }
@@ -59,7 +77,11 @@ export function sh(command: string): Promise<ExecResult> {
 }
 
 /// Runs a shell command every `intervalMs` and exposes its trimmed stdout. Stops with its owner.
-export function poll(command: string, intervalMs: number, initial = ""): Accessor<string> {
+export function poll(
+  command: string,
+  intervalMs: number,
+  initial = "",
+): Accessor<string> {
   const output = signal(initial);
   let stopped = false;
   const run = () =>

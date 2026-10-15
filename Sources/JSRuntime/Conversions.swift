@@ -92,6 +92,16 @@ enum Conversions {
             node.style.originY = point.count == 2 ? point[1] : defaults.originY
         case "transition":
             node.transitions = AnimationConversions.transitions(value)
+        case "lines":
+            guard let text = node as? Text else { return Log.warn("style.lines only applies to <Text>") }
+            text.maxLines = number(value).map { max(0, Int($0)) } ?? 1
+        case "textAlign":
+            guard let text = node as? Text else { return Log.warn("style.textAlign only applies to <Text>") }
+            text.alignment = switch value.toString() {
+            case "center": .center
+            case "right": .right
+            default: .left
+            }
         case "color", "fontSize", "fontWeight", "fontFamily":
             if let text = node as? Text {
                 applyTextStyle(key, value, font: &text.font, color: &text.color)
@@ -235,7 +245,11 @@ enum Conversions {
 
     private static func dimension(_ value: JSValue?) -> Compositor.Dimension? {
         if let points = number(value) { return .fixed(points) }
-        return value?.toString() == "fill" ? .fill : nil
+        switch value?.toString() {
+        case "fill": return .fill
+        case "auto": return .auto
+        default: return nil
+        }
     }
 
     private static func justify(_ name: String) -> Justify {

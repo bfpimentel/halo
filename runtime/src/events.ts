@@ -1,6 +1,6 @@
-import { reportError } from "./host";
-import { native } from "./native";
-import { batch, onCleanup } from "./reactive";
+import { reportError } from "halo/host";
+import { native } from "halo/native";
+import { batch, onCleanup } from "halo/reactive";
 
 type Handler = (payload: never) => unknown;
 

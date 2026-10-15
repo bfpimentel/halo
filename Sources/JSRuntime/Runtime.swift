@@ -36,6 +36,8 @@ public final class Runtime {
         var options: Conversions.SurfaceOptions
         var shown = false
         var exiting = false
+        var placedContentSize: CGSize?
+        var mouseTransparent = false
         var pressed: Int?
         var hovered: Set<Int> = []
 
@@ -57,6 +59,8 @@ public final class Runtime {
     var surfaces: [Int: SurfaceEntry] = [:]
     var listeners: [Int: Set<String>] = [:]
     var mouseMonitors: [Any] = []
+    var pointerMonitors: [Any] = []
+    var placingAttached: Set<Int> = []
     var frameSubscribers: Set<Int> = []
     var frameLink: CADisplayLink?
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
@@ -160,6 +164,7 @@ public final class Runtime {
         for (process, _) in processes.values where process.isRunning { process.terminate() }
         processes.removeAll()
         stopMouseMonitors()
+        stopPointerMonitors()
         frameSubscribers.removeAll()
         updateFrameLink()
         backend.transaction {
@@ -184,6 +189,12 @@ public final class Runtime {
     /// Applies config, host visibility and popup attachment; focuses keyboard surfaces as they appear.
     func place(_ entry: SurfaceEntry) {
         var config = entry.config
+        let edges = config.anchor
+        entry.root.autoWidth = Self.isAuto(config.size.width, stretched: edges.contains(.left) && edges.contains(.right))
+        entry.root.autoHeight = Self.isAuto(config.size.height, stretched: edges.contains(.top) && edges.contains(.bottom))
+        if entry.root.autoWidth { config.size.width = .fixed(entry.root.contentSize.width) }
+        if entry.root.autoHeight { config.size.height = .fixed(entry.root.contentSize.height) }
+        entry.placedContentSize = entry.root.contentSize
         config.visible = config.visible && !(host?.isHidden(name: entry.options.name) ?? false)
         var frame: CGRect?
         var screen = screens.first { $0.id == config.screen }
@@ -221,17 +232,49 @@ public final class Runtime {
             entry.exiting = false
             entry.root.node.clearExit()
         }
+        let moved = entry.surface.frame
         entry.surface.update(config, screen: screen, frame: frame)
         entry.root.size = entry.surface.frame.size
         entry.root.contentsScale = screen.scale
+        if entry.surface.frame != moved { placeAttached(to: entry) }
         let appeared = config.visible && !entry.shown
+        let changed = config.visible != entry.shown
         entry.shown = config.visible
+        if changed { updatePointerMonitors() }
         guard appeared else { return }
         if let enter = entry.options.enter {
             entry.root.layoutNow()
             entry.root.node.play(enter: enter)
         }
         if config.input == .keyboard { entry.surface.focus() }
+    }
+
+    /// Unspecified axes that aren't stretched between two anchors follow the content, like explicit `"auto"`.
+    private static func isAuto(_ dimension: Compositor.Dimension?, stretched: Bool) -> Bool {
+        dimension == .auto || (dimension == nil && !stretched)
+    }
+
+    /// After a layout pass: resize a content-sized surface, move popups attached to it, and refresh what's under a
+    /// pointer that didn't move (rows re-rendered beneath it).
+    func didLayout(_ entry: SurfaceEntry) {
+        guard !disposed, surfaces[entry.id] === entry else { return }
+        if (entry.root.autoWidth || entry.root.autoHeight), entry.root.contentSize != entry.placedContentSize {
+            place(entry)
+        }
+        placeAttached(to: entry)
+        guard entry.shown, entry.config.input != .passthrough else { return }
+        pointerMoved()
+        refreshHover(entry)
+    }
+
+    /// Popups anchored inside `entry` follow it. Placing one lays out `entry` again, so each is guarded while placed.
+    func placeAttached(to entry: SurfaceEntry) {
+        for popup in surfaces.values where popup.shown && !placingAttached.contains(popup.id) {
+            guard let attachment = popup.options.attach, nodes[attachment.node]?.rootOwner === entry.root else { continue }
+            placingAttached.insert(popup.id)
+            place(popup)
+            placingAttached.remove(popup.id)
+        }
     }
 
     private func fixed(_ dimension: Compositor.Dimension?) -> CGFloat {
@@ -316,8 +359,13 @@ extension Runtime {
         let entry = SurfaceEntry(id: id, surface: surface, root: root, config: hidden, options: options)
         surfaces[id] = entry
         wireEvents(of: entry)
+        root.onLayout = { [weak self, weak entry] in
+            guard let self, let entry else { return }
+            self.didLayout(entry)
+        }
         entry.config = config
         place(entry)
+        root.layoutNow()
         return id
     }
 
@@ -334,6 +382,7 @@ extension Runtime {
         entry.root.detach()
         entry.surface.destroy()
         updateMouseMonitors()
+        updatePointerMonitors()
     }
 
     func screenList() -> [[String: Any]] {

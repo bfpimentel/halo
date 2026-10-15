@@ -44,7 +44,12 @@ export interface Native {
   setVisibility(action: "show" | "hide" | "toggle", name: string): void;
   focus(id: number): void;
   /// Plays keyframes on a node; `done(finished)` fires when it ends or is cancelled. Returns a key for cancelling.
-  animate(id: number, tracks: object, options: object, done: (finished: boolean) => void): string;
+  animate(
+    id: number,
+    tracks: object,
+    options: object,
+    done: (finished: boolean) => void,
+  ): string;
   cancelAnimation(id: number, key: string): void;
   /// Starts or stops `frame` events (display-link timestamps in ms) for a JS-allocated id.
   setFrames(id: number, enabled: boolean): void;

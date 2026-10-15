@@ -41,6 +41,11 @@ public final class Surface {
         setFrame(Placement.frame(for: config, on: screen))
     }
 
+    public func setMouseTransparent(_ transparent: Bool) {
+        guard config.input != .passthrough else { return }
+        backing.setMouseTransparent(transparent)
+    }
+
     public func focus() {
         backing.focus()
     }

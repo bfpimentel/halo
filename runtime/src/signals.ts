@@ -1,4 +1,14 @@
-export { batch, computed, effect, getOwner, onCleanup, root, runWithOwner, signal, untrack } from "./reactive";
-export type { Accessor, Signal } from "./reactive";
-export { externalSignal } from "./external";
-export type { ExternalSignalOptions, Payload } from "./external";
+export {
+  batch,
+  computed,
+  effect,
+  getOwner,
+  onCleanup,
+  root,
+  runWithOwner,
+  signal,
+  untrack,
+} from "halo/reactive";
+export type { Accessor, Signal } from "halo/reactive";
+export { externalSignal } from "halo/external";
+export type { ExternalSignalOptions, Payload } from "halo/external";

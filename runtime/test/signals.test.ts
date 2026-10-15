@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { batch, computed, effect, onCleanup, root, setErrorHandler, signal, untrack } from "../src/reactive";
+import {
+  batch,
+  computed,
+  effect,
+  onCleanup,
+  root,
+  setErrorHandler,
+  signal,
+  untrack,
+} from "halo/reactive";
 
 describe("signals", () => {
   test("diamond dependencies run the effect once per change, never with mixed values", () => {

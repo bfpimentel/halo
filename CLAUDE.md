@@ -75,14 +75,14 @@ A `Surface` is configured declaratively from TSX:
 | `screen` | a display id (usually supplied by `<PerScreen>`) |
 | `anchor` | any combination of `top/bottom/left/right`; none = centered |
 | `margins` | per-edge insets |
-| `size` | fixed width/height, or `"fill"` along anchored axes |
+| `size` | per axis: points, `"fill"` (between both anchors) or `"auto"` (the content's laid-out size, followed as it changes). Omitted axes are `fill` when anchored to both edges, `auto` otherwise |
 | `layer` | `desktop` · `belowMenu` · `aboveMenu` · `overlay` |
-| `input` | `passthrough` · `hover` (hover + scroll) · `interactive` (+ clicks) · `keyboard` (+ key focus, `<Input>`) |
+| `input` | `passthrough` · `hover` (hover + scroll) · `interactive` (+ clicks) · `keyboard` (+ key focus, `<Input>`). Non-passthrough surfaces let clicks through wherever nothing painted or listening is under the pointer (a pointer monitor runs only while such a surface is shown) |
 | `avoid` | `notch`, `menuBar`: placement shifts around them |
 | `visible` | bool (hidden surfaces are kept, not destroyed) |
 | `name` | target for `halo show/hide/toggle`; shared by every display's instance |
 | `defaultHidden` | start hidden the first time the name appears; afterwards the user's choice sticks (host state, survives reloads) |
-| `attach` | `{ to: node, side, align, offset }`: popup placed next to a node of another surface (flips/slides to stay on screen; needs a fixed `size`) |
+| `attach` | `{ to: node, side, align, offset }`: popup placed next to a node of another surface (flips/slides to stay on screen; follows the node when it moves; fixed or `auto` size) |
 | `onKeyDown` · `onFocus` · `onBlur` · `onClickOutside` | surface events (`onClickOutside` uses NSEvent mouse monitors, which need no permission, only while someone listens) |
 
 Placement is a **pure function** `(SurfaceConfig, ScreenInfo) -> CGRect`. Unit-test it heavily. Note: AppKit's global coordinates are bottom-left origin, CoreGraphics' are top-left. Convert in exactly one place.
@@ -109,9 +109,9 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
 - Each prop that's a signal or function becomes an effect that writes **one** native property. Static props are applied once.
 - Primitives (start small):
   - `<Box>`: flexbox container with background, border, radius, padding, gap, opacity
-  - `<Text>`: CoreText-backed, font family/size/weight, color, truncation
+  - `<Text>`: CoreText-backed, font family/size/weight, color, truncation; `lines` (1 by default, 0 = unlimited; more than one wraps at the box width) and `textAlign`
   - `<Image>`: file path, SF Symbol name, or app icon by bundle id or `.app` path
-  - `<Input>`: a real `NSTextField` mounted over the node's frame after every layout (IME, selection, clipboard). `value`, `placeholder`, `autofocus`, `onInput`, `onSubmit`, `onKeyDown` (Enter/Escape/arrows/Tab; return true to consume). Needs a `keyboard` surface. The field isn't in the layer tree, so `Node.play(enter:/exit:)` mirrors opacity, translation and scale (pivot-compensated) onto every field in the subtree (surface show/hide included). Style transitions and `animate()` keyframes on an ancestor are not mirrored yet.
+  - `<Input>`: a real `NSTextField` mounted over the node's frame after every layout (IME, selection, clipboard). `value`, `placeholder`, `autofocus`, `onInput`, `onSubmit`, `onKeyDown` (every editing command with its key event and modifiers; return true to consume). Needs a `keyboard` surface. The field isn't in the layer tree, so every animation on an ancestor (transitions, enter/exit, keyframes, surface show/hide) is sampled into keyframes and replayed on the field (`Render/Mirror.swift`: opacity plus a pivot-compensated transform, springs included). Not mirrored: layout transitions; and when two ancestors animate at once the innermost wins.
   - `<Shape>` (later): paths for graphs and progress rings
 - Layout: **Yoga** (C API) owns the layout. After each layout pass, frames are pushed to CALayers inside one `CATransaction` with `setDisableActions(true)`.
 - Styling is a **typed props object**, not CSS: `style={{ padding: 8, gap: 6, background: "#1e1e2e", radius: 8 }}`. Keep the vocabulary to what's in the table above until a real widget needs more.
@@ -122,7 +122,7 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
   - `enter={{ from: {…} }}` / `exit={{ to: {…} }}` on nodes (enter on first layout; on removal the node leaves the layout at once and its layer stays until the exit ends) and on surfaces (every show/hide, including `halo show/hide`; a hiding surface stays on screen until its exit finishes).
   - `animate(node, { rotate: [0, 360] }, { duration, curve, delay, repeat (Infinity loops), alternate, offsets, fill })` → `{ cancel(), finished }`, cancelled with its owner.
   - `onFrame((time, dt) => …)` runs JS on a shared display link only while subscribed; `tween(() => target, timing)` follows a number with JS curves (`runtime/src/easing.ts`, tested with bun).
-- Hit-testing: native, against layer frames (`Node.hitPath`). Events (`onClick`, `onScroll`, `onHover`) dispatch to JS through `__halo.dispatch(id, kind, payload)` and bubble to the closest listening ancestor. Click = mouse down and up on the same listener. Surfaces with `input: passthrough` get none. `ref={(node) => …}` hands out a node (for `attach` and `focus(node)`).
+- Hit-testing: native, through each layer's transform (`Node.hitPath`), so scaled/rotated/translated nodes are hit where they're drawn; hover is recomputed after every layout pass under a still pointer. Events (`onClick`, `onScroll`, `onHover`) dispatch to JS through `__halo.dispatch(id, kind, payload)` and bubble to the closest listening ancestor. Click = mouse down and up on the same listener. Surfaces with `input: passthrough` get none. `ref={(node) => …}` hands out a node (for `attach` and `focus(node)`).
 
 ### 5. JS runtime
 
@@ -239,7 +239,8 @@ Tests/
 - build: `swift build`
 - run dev: `swift run halo start --config examples/demo` (or any folder listed in `examples/README.md`; without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr and `$TMPDIR/halo.log`.
 - control it: `swift run halo trigger <name> k=v`, `halo reload`, `halo quit`, `halo log`.
-- tests: `swift test` (Swift Testing: placement math, render-tree invalidation, config lifecycle/reload leaks, external signals, IPC parsing; the JSRuntime suites need esbuild) and `cd runtime && bun test` (signal graph).
+- tests: `swift test` (Swift Testing: placement math, render-tree invalidation, hit-testing, field mirroring, config lifecycle/reload leaks, content-sized surfaces, popups, external signals, IPC parsing; the JSRuntime suites need esbuild) and `cd runtime && bun test` (signal graph, easing).
+- lint/format (TS): `nix develop -c oxlint runtime examples Tests/JSRuntimeTests/Fixtures` and `nix develop -c oxfmt runtime examples Tests/JSRuntimeTests/Fixtures` (configs: `.oxlintrc.json`, `.oxfmtrc.json`).
 
 ## Conventions
 
@@ -250,6 +251,7 @@ Tests/
 - Layers created for nodes have implicit animations disabled. Layout runs at most once per run-loop pass (`LayoutScheduler`), and only for roots whose Yoga tree is dirty.
 - Performance budget: idle CPU ~0%, no polling unless the user asked for `poll`. A signal update triggers no layout unless a layout-affecting prop changed.
 - Keep the TSX API small. Add a primitive or style prop only when an example widget needs it.
+- TS style (oxfmt): 90 columns, double quotes, semicolons. Imports are aliases only, never relative (oxlint `no-restricted-imports`): the runtime imports itself as `halo/<module>` (never `@/`, which would collide with a user config's own `@/` when editors type-check the runtime through that config); examples and configs use `@/…` from their tsconfig `paths`, which esbuild honors. `halo init` stays neutral: it doesn't add lint/format configs or an `@` alias.
 - Tests only where logic is subtle or regressions are silent: placement math, the signal graph and ownership, reload leaks, IPC parsing. No tests for thin AppKit/service wrappers or for coverage's sake. Check those by running an example.
 
 ## Milestones

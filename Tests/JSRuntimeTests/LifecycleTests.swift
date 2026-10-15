@@ -31,6 +31,7 @@ private final class FakeSurface: BackendSurface {
     func setFrame(_ frame: CGRect) {}
     func setLayer(_ layer: SurfaceLayer) {}
     func setInput(_ input: InputPolicy) {}
+    func setMouseTransparent(_ transparent: Bool) {}
     func setVisible(_ visible: Bool) {}
     func destroy() { backend?.liveSurfaces -= 1 }
 }
@@ -71,5 +72,37 @@ struct LifecycleTests {
             #expect(runtime.dispose() == .zero)
         }
         #expect(backend.liveSurfaces == 0)
+    }
+
+    /// An unanchored-axis surface takes its content's size and follows it; its empty padding lets clicks through.
+    @Test func contentSizedSurfacesFollowTheirContent() throws {
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/autosize")
+        let runtime = Runtime(backend: FakeBackend(), screens: [left])
+        runtime.evaluate(try Bundler.locate().build(configDirectory: fixture))
+        let entry = try #require(runtime.surfaces.values.first)
+        #expect(entry.surface.frame.size == CGSize(width: 140, height: 50))
+
+        runtime.context.evaluateScript("__test.setRows(3)")
+        entry.root.layoutNow()
+        #expect(entry.surface.frame.size == CGSize(width: 140, height: 78))
+        #expect(entry.surface.frame.minX == CGFloat(1512 - 140) / 2)
+
+        #expect(!runtime.isSolid(entry, at: CGPoint(x: 5, y: 5)))
+        #expect(runtime.isSolid(entry, at: CGPoint(x: 30, y: 30)))
+        runtime.dispose()
+    }
+
+    @Test func attachedPopupsFollowTheirAnchor() throws {
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/popup")
+        let runtime = Runtime(backend: FakeBackend(), screens: [left])
+        runtime.evaluate(try Bundler.locate().build(configDirectory: fixture))
+        let popup = try #require(runtime.surfaces.values.first { $0.options.attach != nil })
+        let bar = try #require(runtime.surfaces.values.first { $0.options.attach == nil })
+        #expect(popup.surface.frame == CGRect(x: 0, y: 44, width: 100, height: 60))
+
+        runtime.context.evaluateScript("__test.shift(120)")
+        bar.root.layoutNow()
+        #expect(popup.surface.frame == CGRect(x: 120, y: 44, width: 100, height: 60))
+        runtime.dispose()
     }
 }

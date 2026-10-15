@@ -31,9 +31,11 @@ public struct Insets: Sendable, Hashable {
 public enum Dimension: Sendable, Hashable {
     case fixed(CGFloat)
     case fill
+    /// The content's laid-out size; resolved to `.fixed` by the runtime before placement.
+    case auto
 }
 
-/// `nil` means fill when the surface is anchored to both edges of that axis, and zero (content-sized) otherwise.
+/// `nil` means fill when the surface is anchored to both edges of that axis, and content-sized otherwise.
 public struct SurfaceSize: Sendable, Hashable {
     public var width: Dimension?
     public var height: Dimension?

@@ -138,6 +138,11 @@ final class PanelSurface: BackendSurface {
         if input != .keyboard, panel.isKeyWindow { panel.resignKey() }
     }
 
+    func setMouseTransparent(_ transparent: Bool) {
+        guard panel.ignoresMouseEvents != transparent else { return }
+        panel.ignoresMouseEvents = transparent
+    }
+
     func setVisible(_ visible: Bool) {
         if visible {
             panel.orderFrontRegardless()
@@ -166,7 +171,7 @@ final class PanelSurface: BackendSurface {
 }
 
 extension KeyEvent {
-    init(_ event: NSEvent) {
+    public init(_ event: NSEvent) {
         let flags = event.modifierFlags
         self.init(
             key: Self.name(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? ""),

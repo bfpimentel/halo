@@ -72,6 +72,40 @@ import Testing
         #expect(root.hitPath(at: CGPoint(x: 125, y: 10)).map(ObjectIdentifier.init) == [ObjectIdentifier(row)])
     }
 
+    @Test func hitTestingFollowsTransforms() {
+        let target = Box(style: Style(width: .points(20), height: .points(20)))
+        let row = Box(style: Style(flexDirection: .row, padding: Spacing(left: 40)), children: [target])
+        let root = mount(row, size: CGSize(width: 200, height: 40))
+        let id = ObjectIdentifier(target)
+
+        #expect(root.hitPath(at: CGPoint(x: 45, y: 10)).first.map(ObjectIdentifier.init) == id)
+        #expect(root.hitPath(at: CGPoint(x: 35, y: 10)).first.map(ObjectIdentifier.init) != id)
+
+        target.style.scale = 2
+        #expect(root.hitPath(at: CGPoint(x: 35, y: 10)).first.map(ObjectIdentifier.init) == id)
+
+        target.style.scale = 1
+        target.style.translateX = 100
+        #expect(root.hitPath(at: CGPoint(x: 45, y: 10)).first.map(ObjectIdentifier.init) != id)
+        #expect(root.hitPath(at: CGPoint(x: 145, y: 10)).first.map(ObjectIdentifier.init) == id)
+    }
+
+    @Test func multiLineTextWrapsToItsBoxAndStopsAtMaxLines() {
+        let long = "halo wraps long sentences across lines when it is allowed to do so"
+        let single = Text(long)
+        let wrapped = Text(long)
+        wrapped.maxLines = 0
+        let capped = Text(long)
+        capped.maxLines = 2
+        let column = Box(style: Style(width: .points(120)), children: [single, wrapped, capped])
+        _ = mount(column, size: CGSize(width: 400, height: 400))
+
+        let lineHeight = single.layoutFrame.height
+        #expect(single.layoutFrame.width == 120)
+        #expect(wrapped.layoutFrame.height >= lineHeight * 4)
+        #expect(capped.layoutFrame.height == lineHeight * 2)
+    }
+
     @Test func removingAChildDetachesItsLayer() {
         let child = Box()
         let parent = Box(children: [child])

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cubicBezier, defaultSpring, easing, settled, springStep } from "../src/easing";
+import { cubicBezier, defaultSpring, easing, settled, springStep } from "halo/easing";
 
 describe("easing", () => {
   test("cubic-bezier matches its endpoints and known CSS values", () => {

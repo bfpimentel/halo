@@ -1,8 +1,17 @@
-import type { EnterTransition, ExitTransition, Transitions } from "./animation";
-import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "./events";
-import { reportError } from "./host";
-import { native, type ScreenInfo } from "./native";
-import { effect, getOwner, onCleanup, root, runWithOwner, signal, untrack, type Accessor } from "./reactive";
+import type { EnterTransition, ExitTransition, Transitions } from "halo/animation";
+import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "halo/events";
+import { reportError } from "halo/host";
+import { native, type ScreenInfo } from "halo/native";
+import {
+  effect,
+  getOwner,
+  onCleanup,
+  root,
+  runWithOwner,
+  signal,
+  untrack,
+  type Accessor,
+} from "halo/reactive";
 
 export type Reactive<T> = T | Accessor<T>;
 
@@ -10,15 +19,32 @@ export class NativeNode {
   constructor(readonly id: number) {}
 }
 
-export type Element = NativeNode | string | number | boolean | null | undefined | Accessor<unknown> | Element[];
+export type Element =
+  | NativeNode
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Accessor<unknown>
+  | Element[];
 
 type Color = string;
 type Length = number | `${number}%` | "auto";
-type Spacing = number | [vertical: number, horizontal: number] | [top: number, right: number, bottom: number, left: number];
+type Spacing =
+  | number
+  | [vertical: number, horizontal: number]
+  | [top: number, right: number, bottom: number, left: number];
 
 export interface BoxStyle {
   flexDirection?: "row" | "column";
-  justify?: "start" | "center" | "end" | "space-between" | "space-around" | "space-evenly";
+  justify?:
+    | "start"
+    | "center"
+    | "end"
+    | "space-between"
+    | "space-around"
+    | "space-evenly";
   align?: "start" | "center" | "end" | "stretch";
   padding?: Spacing;
   gap?: number;
@@ -43,6 +69,9 @@ export interface BoxStyle {
 }
 
 export interface TextStyle extends BoxStyle {
+  /// Lines before truncating; 1 by default, 0 for no limit. More than one wraps at the box's width.
+  lines?: number;
+  textAlign?: "left" | "center" | "right";
   color?: Color;
   fontSize?: number;
   fontWeight?: "regular" | "medium" | "semibold" | "bold" | number;
@@ -88,8 +117,10 @@ function applyStyle(node: NativeNode, style: StyleProp<TextStyle> | undefined): 
     let previous: string[] = [];
     effect(() => {
       const current = style();
-      for (const key of previous) if (!(key in current)) native.setStyle(node.id, key, null);
-      for (const [key, value] of Object.entries(current)) native.setStyle(node.id, key, read(value));
+      for (const key of previous)
+        if (!(key in current)) native.setStyle(node.id, key, null);
+      for (const [key, value] of Object.entries(current))
+        native.setStyle(node.id, key, read(value));
       previous = Object.keys(current);
     });
     return;
@@ -102,7 +133,13 @@ function applyStyle(node: NativeNode, style: StyleProp<TextStyle> | undefined): 
 
 function flatten(children: Element, out: Element[] = []): Element[] {
   if (Array.isArray(children)) for (const child of children) flatten(child, out);
-  else if (children !== null && children !== undefined && children !== false && children !== true) out.push(children);
+  else if (
+    children !== null &&
+    children !== undefined &&
+    children !== false &&
+    children !== true
+  )
+    out.push(children);
   return out;
 }
 
@@ -121,7 +158,8 @@ function appendChildren(parent: NativeNode, children: Element): void {
     const slot = sizes.length;
     if (typeof child !== "function") {
       const nodes = toNodes(child);
-      for (const node of nodes) native.insert(parent.id, node.id, Number.MAX_SAFE_INTEGER);
+      for (const node of nodes)
+        native.insert(parent.id, node.id, Number.MAX_SAFE_INTEGER);
       sizes.push(nodes.length);
       continue;
     }
@@ -138,7 +176,9 @@ function appendChildren(parent: NativeNode, children: Element): void {
   }
 }
 
-export function Box(props: Interactive & { style?: StyleProp<BoxStyle>; children?: Element }): NativeNode {
+export function Box(
+  props: Interactive & { style?: StyleProp<BoxStyle>; children?: Element },
+): NativeNode {
   const node = createNode("box");
   applyStyle(node, props.style);
   appendChildren(node, props.children);
@@ -147,26 +187,32 @@ export function Box(props: Interactive & { style?: StyleProp<BoxStyle>; children
 }
 
 /// Function children are re-read reactively: `<Text>{() => `WS ${ws()}`}</Text>`.
-export function Text(props: Interactive & { style?: StyleProp<TextStyle>; children?: Element }): NativeNode {
+export function Text(
+  props: Interactive & { style?: StyleProp<TextStyle>; children?: Element },
+): NativeNode {
   const node = createNode("text");
   wire(node, props);
   applyStyle(node, props.style);
   const parts = flatten(props.children);
-  const render = () => parts.map((part) => String(typeof part === "function" ? part() : part)).join("");
-  if (parts.some((part) => typeof part === "function")) effect(() => native.setProp(node.id, "text", render()));
+  const render = () =>
+    parts.map((part) => String(typeof part === "function" ? part() : part)).join("");
+  if (parts.some((part) => typeof part === "function"))
+    effect(() => native.setProp(node.id, "text", render()));
   else native.setProp(node.id, "text", render());
   return node;
 }
 
-export function Image(props: Interactive & {
-  symbol?: Reactive<string>;
-  /// A bundle id ("com.apple.Safari") or an absolute `.app` path.
-  app?: Reactive<string>;
-  file?: Reactive<string>;
-  size?: Reactive<number>;
-  color?: Reactive<Color>;
-  style?: StyleProp<BoxStyle>;
-}): NativeNode {
+export function Image(
+  props: Interactive & {
+    symbol?: Reactive<string>;
+    /// A bundle id ("com.apple.Safari") or an absolute `.app` path.
+    app?: Reactive<string>;
+    file?: Reactive<string>;
+    size?: Reactive<number>;
+    color?: Reactive<Color>;
+    style?: StyleProp<BoxStyle>;
+  },
+): NativeNode {
   const node = createNode("image");
   for (const key of ["size", "color", "symbol", "app", "file"] as const) {
     const value = props[key];
@@ -179,7 +225,8 @@ export function Image(props: Interactive & {
 }
 
 /// A native single-line text field (IME, selection and clipboard included). Needs a `keyboard` surface.
-/// `onKeyDown` gets Enter, Escape, ArrowUp, ArrowDown and Tab; return true to stop the default behavior.
+/// `onKeyDown` gets every editing key (Enter, Escape, arrows, Tab, Home/End…) with its modifiers; return true to
+/// stop the field's default behavior.
 export function Input(props: {
   value?: Reactive<string>;
   placeholder?: Reactive<string>;
@@ -187,7 +234,7 @@ export function Input(props: {
   style?: StyleProp<TextStyle>;
   onInput?: (value: string) => void;
   onSubmit?: (value: string) => void;
-  onKeyDown?: (event: { key: string }) => boolean | void;
+  onKeyDown?: (event: KeyEvent) => boolean | void;
   ref?: (node: NativeNode) => void;
 }): NativeNode {
   const node = createNode("input");
@@ -238,7 +285,12 @@ export interface SurfaceProps {
   screen: Reactive<number | ScreenInfo>;
   anchor?: Reactive<Edge[]>;
   margins?: Reactive<Spacing>;
-  size?: Reactive<{ width?: number | "fill"; height?: number | "fill" }>;
+  /// Per axis: points, "fill" (between both anchors), or "auto" (the content's size). Omitted axes are "fill" when
+  /// anchored to both edges of that axis and "auto" otherwise.
+  size?: Reactive<{
+    width?: number | "fill" | "auto";
+    height?: number | "fill" | "auto";
+  }>;
   layer?: Reactive<"desktop" | "belowMenu" | "aboveMenu" | "overlay">;
   input?: Reactive<"passthrough" | "hover" | "interactive" | "keyboard">;
   avoid?: Reactive<("notch" | "menuBar")[]>;
@@ -249,7 +301,9 @@ export interface SurfaceProps {
 export function Surface(props: SurfaceProps): null {
   const children = flatten(props.children);
   const content =
-    children.length === 1 && children[0] instanceof NativeNode ? children[0] : Box({ children: props.children });
+    children.length === 1 && children[0] instanceof NativeNode
+      ? children[0]
+      : Box({ children: props.children });
 
   let id = 0;
   effect(() => {
@@ -283,7 +337,12 @@ export function Surface(props: SurfaceProps): null {
 function attachment(value: Reactive<Attachment> | undefined) {
   const attach = value === undefined ? undefined : read(value);
   if (!attach?.to) return undefined;
-  return { node: attach.to.id, side: attach.side, align: attach.align, offset: attach.offset };
+  return {
+    node: attach.to.id,
+    side: attach.side,
+    align: attach.align,
+    offset: attach.offset,
+  };
 }
 
 const screenList = signal<ScreenInfo[]>(native.screens(), { equals: false });

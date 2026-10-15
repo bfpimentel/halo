@@ -10,7 +10,8 @@
     "lib": ["ES2022"],
     "paths": {
       "halo": ["../runtime/src/index.ts"],
-      "halo/*": ["../runtime/src/*"]
+      "halo/*": ["../runtime/src/*"],
+      "@/*": ["./*"]
     }
   },
   "include": ["**/*.tsx", "../runtime/src"]

@@ -10,8 +10,9 @@ public final class Input: Node {
 
     public var onChange: ((String) -> Void)?
     public var onSubmit: ((String) -> Void)?
-    /// Gets "Enter", "Escape", "ArrowUp", "ArrowDown" and "Tab"; returning true stops the default behavior.
-    public var onKey: ((String) -> Bool)?
+    /// Every editing command (Enter, Escape, arrows, Tab, Home/End…) with the key event that caused it, plus a
+    /// fallback name when there's no event. Returning true stops the field's default behavior.
+    public var onKey: ((NSEvent?, String) -> Bool)?
     public var autofocus = false
 
     public var value: String {
@@ -58,23 +59,17 @@ public final class Input: Node {
         YGNodeSetMeasureFunc(yoga, measureInput)
     }
 
+    public override var paintsContent: Bool { true }
+
     public func focus() {
         field.window?.makeFirstResponder(field)
     }
-
-    static let mirroredEnter = "mirror.enter"
-    static let mirroredExit = "mirror.exit"
 
     override func detachNativeViews() {
         field.removeFromSuperview()
         super.detachNativeViews()
     }
 
-    func clearMirroredExit() {
-        for keyPath in ["opacity", "transform.scale", "transform.translation.x", "transform.translation.y"] {
-            field.layer?.removeAnimation(forKey: "\(Self.mirroredExit).\(keyPath)")
-        }
-    }
 
     override func applyFrames() {
         super.applyFrames()
@@ -98,9 +93,10 @@ public final class Input: Node {
         )
     }
 
-    fileprivate func command(_ name: String) -> Bool {
-        if onKey?(name) == true { return true }
-        guard name == "Enter" else { return false }
+    fileprivate func command(_ selector: Selector, name: String) -> Bool {
+        let event = NSApp.currentEvent.flatMap { $0.type == .keyDown ? $0 : nil }
+        if onKey?(event, name) == true { return true }
+        guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
         onSubmit?(value)
         return true
     }
@@ -125,8 +121,8 @@ private final class FieldDelegate: NSObject, NSTextFieldDelegate {
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        guard let name = Self.commands[selector] else { return false }
-        return MainActor.assumeIsolated { input?.command(name) ?? false }
+        let name = Self.commands[selector] ?? NSStringFromSelector(selector)
+        return MainActor.assumeIsolated { input?.command(selector, name: name) ?? false }
     }
 }
 

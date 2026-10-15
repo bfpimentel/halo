@@ -13,6 +13,8 @@ public struct Timing: Equatable, Sendable {
     public var duration: TimeInterval
     public var curve: Curve
     public var delay: TimeInterval
+    /// Only for sampled curves (`Timing.progress`): time before the curve starts moving.
+    var startOffset: TimeInterval = 0
 
     public init(duration: TimeInterval = 0.2, curve: Curve = .easeOut, delay: TimeInterval = 0) {
         self.duration = duration

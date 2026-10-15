@@ -10,6 +10,8 @@ public protocol BackendSurface: AnyObject {
     func setFrame(_ frame: CGRect)
     func setLayer(_ layer: SurfaceLayer)
     func setInput(_ input: InputPolicy)
+    /// Lets clicks through to whatever is behind (for the empty parts of an interactive surface).
+    func setMouseTransparent(_ transparent: Bool)
     func setVisible(_ visible: Bool)
     /// Takes keyboard focus without activating the app. Only `.keyboard` surfaces accept it.
     func focus()

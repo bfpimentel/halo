@@ -17,21 +17,44 @@ function Showcase() {
   return (
     <Box style={{ padding: 18, gap: 14, background: "#1e1e2ef0", radius: 18 }}>
       <Box style={{ flexDirection: "row", justify: "space-between", align: "center" }}>
-        <Text style={{ fontSize: 13, fontWeight: "semibold", color: muted }}>SIGNALS</Text>
+        <Text style={{ fontSize: 13, fontWeight: "semibold", color: muted }}>
+          SIGNALS
+        </Text>
         <Text style={{ fontSize: 13, color: muted }}>{clock.format("HH:mm:ss")}</Text>
       </Box>
 
       <Box style={{ flexDirection: "row", align: "center", gap: 12 }}>
-        <Text style={{ fontSize: 34, fontWeight: "bold", color: () => (even() ? accent : "#f9e2af") }}>{() => String(ticks())}</Text>
-        <Text style={{ fontSize: 14, color: muted }}>{() => (even() ? "even" : "odd")}</Text>
+        <Text
+          style={{
+            fontSize: 34,
+            fontWeight: "bold",
+            color: () => (even() ? accent : "#f9e2af"),
+          }}
+        >
+          {() => String(ticks())}
+        </Text>
+        <Text style={{ fontSize: 14, color: muted }}>
+          {() => (even() ? "even" : "odd")}
+        </Text>
       </Box>
 
       <Box style={{ height: 8, background: "#313244", radius: 4 }}>
-        <Box style={{ height: 8, width: () => `${Math.min(progress(), 100)}%`, background: accent, radius: 4 }} />
+        <Box
+          style={{
+            height: 8,
+            width: () => `${Math.min(progress(), 100)}%`,
+            background: accent,
+            radius: 4,
+          }}
+        />
       </Box>
 
       <Box style={{ flexDirection: "row", gap: 6, height: 12 }}>
-        {() => Array.from({ length: dots() }, () => <Box style={{ width: 12, height: 12, radius: 6, background: accent }} />)}
+        {() =>
+          Array.from({ length: dots() }, () => (
+            <Box style={{ width: 12, height: 12, radius: 6, background: accent }} />
+          ))
+        }
       </Box>
     </Box>
   );

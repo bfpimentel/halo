@@ -69,7 +69,7 @@ class SignalNode<T> implements Source {
   write(value: T): void {
     if (this.equals && this.equals(this.value, value)) return;
     this.value = value;
-    for (const observer of [...this.observers]) observer.mark(DIRTY);
+    for (const observer of this.observers) observer.mark(DIRTY);
     flush();
   }
 }
@@ -123,13 +123,11 @@ class Computation<T> extends Owner implements Source {
   private run(): void {
     this.disposeContents();
     this.unlinkSources();
-    const previousOwner = currentOwner;
-    const previousListener = listener;
-    currentOwner = this;
-    listener = this;
+    const previous = enter(this, this as Computation<unknown>);
     try {
       const value = this.fn(this.value);
-      const unchanged = this.hasValue && this.equals && this.equals(this.value as T, value);
+      const unchanged =
+        this.hasValue && this.equals && this.equals(this.value as T, value);
       if (!this.isEffect && !unchanged) {
         for (const observer of this.observers) observer.state = DIRTY;
       }
@@ -138,8 +136,7 @@ class Computation<T> extends Owner implements Source {
     } catch (error) {
       reportError(error);
     } finally {
-      currentOwner = previousOwner;
-      listener = previousListener;
+      enter(...previous);
     }
   }
 
@@ -162,6 +159,17 @@ let flushing = false;
 let queue: Computation<unknown>[] = [];
 let errorHandler: (error: unknown) => void = (error) => console.error(error);
 
+/// Makes `owner`/`tracking` current and returns the previous pair, for restoring afterwards.
+function enter(
+  owner: Owner | null,
+  tracking: Computation<unknown> | null,
+): [Owner | null, Computation<unknown> | null] {
+  const previous: [Owner | null, Computation<unknown> | null] = [currentOwner, listener];
+  currentOwner = owner;
+  listener = tracking;
+  return previous;
+}
+
 function track(source: Source): void {
   if (!listener) return;
   listener.sources.add(source);
@@ -179,7 +187,9 @@ function flush(): void {
     for (let rounds = 0; queue.length > 0; rounds++) {
       if (rounds > 100) {
         queue = [];
-        throw new Error("signals: effects kept re-triggering each other (more than 100 rounds)");
+        throw new Error(
+          "signals: effects kept re-triggering each other (more than 100 rounds)",
+        );
       }
       const pending = queue;
       queue = [];

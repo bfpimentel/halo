@@ -93,6 +93,7 @@ public enum Placement {
         let size: CGFloat = switch dimension {
         case .fixed(let value): min(value, available)
         case .fill: available
+        case .auto: 0
         case nil: anchoredStart && anchoredEnd ? available : 0
         }
 

@@ -1,8 +1,8 @@
-import { screens } from "./components";
-import { externalSignal } from "./external";
-import { sh } from "./host";
-import type { ScreenInfo } from "./native";
-import { computed, effect, signal, type Accessor } from "./reactive";
+import { screens } from "halo/components";
+import { externalSignal } from "halo/external";
+import { sh } from "halo/host";
+import type { ScreenInfo } from "halo/native";
+import { computed, effect, signal, type Accessor } from "halo/reactive";
 
 export interface Workspace {
   name: string;
@@ -21,8 +21,12 @@ const query =
 /// AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger (see examples/aerospace).
 /// Call once per config, at module level or inside a component.
 export function aerospace(options: { command?: string } = {}) {
-  const event = externalSignal("aerospace.workspace", { parse: (payload) => ({ ...payload }) });
-  const focusEvent = externalSignal("aerospace.focus", { parse: (payload) => ({ ...payload }) });
+  const event = externalSignal("aerospace.workspace", {
+    parse: (payload) => ({ ...payload }),
+  });
+  const focusEvent = externalSignal("aerospace.focus", {
+    parse: (payload) => ({ ...payload }),
+  });
   const raw = signal<string | undefined>(undefined);
   const command = options.command ?? query;
 
@@ -33,7 +37,10 @@ export function aerospace(options: { command?: string } = {}) {
     const current = ++generation;
     sh(command).then((result) => {
       if (current !== generation) return;
-      if (result.code !== 0) return console.warn(`aerospace: query failed (${result.code}): ${result.stderr.trim()}`);
+      if (result.code !== 0)
+        return console.warn(
+          `aerospace: query failed (${result.code}): ${result.stderr.trim()}`,
+        );
       raw.set(result.stdout);
     });
   });
@@ -44,8 +51,15 @@ export function aerospace(options: { command?: string } = {}) {
     if (output === undefined) return [];
     const [all = "", focusedOutput = "", nonEmpty = ""] = output.split(separator);
     const focused = event()?.focused ?? focusedOutput.trim();
-    const occupied = new Set(nonEmpty.split("\n").map((line) => line.trim()).filter(Boolean));
-    const byIndex = new Map<number, ScreenInfo>(screens().map((screen) => [screen.index, screen]));
+    const occupied = new Set(
+      nonEmpty
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+    const byIndex = new Map<number, ScreenInfo>(
+      screens().map((screen) => [screen.index, screen]),
+    );
     return all
       .split("\n")
       .map((line) => line.trim())
@@ -55,9 +69,16 @@ export function aerospace(options: { command?: string } = {}) {
         const screen = byIndex.get(Number(index));
         if (!screen && !warned.has(index)) {
           warned.add(index);
-          console.warn(`aerospace: no display at macOS index ${index} for workspace ${name}; it won't be shown`);
+          console.warn(
+            `aerospace: no display at macOS index ${index} for workspace ${name}; it won't be shown`,
+          );
         }
-        return { name, screen: screen?.id, focused: name === focused, empty: !occupied.has(name) };
+        return {
+          name,
+          screen: screen?.id,
+          focused: name === focused,
+          empty: !occupied.has(name),
+        };
       });
   });
 
@@ -66,9 +87,12 @@ export function aerospace(options: { command?: string } = {}) {
     focused: computed(() => workspaces().find((workspace) => workspace.focused)?.name),
     /// Workspaces on one display, in AeroSpace's order.
     on(screen: ScreenInfo): Accessor<Workspace[]> {
-      return computed(() => workspaces().filter((workspace) => workspace.screen === screen.id), {
-        equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
-      });
+      return computed(
+        () => workspaces().filter((workspace) => workspace.screen === screen.id),
+        {
+          equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+        },
+      );
     },
   };
 }

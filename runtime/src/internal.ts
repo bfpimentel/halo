@@ -1,5 +1,5 @@
-import { installGlobals, mount as mountApp } from "./host";
-import { beginScope } from "./reactive";
+import { installGlobals, mount as mountApp } from "halo/host";
+import { beginScope } from "halo/reactive";
 
 installGlobals();
 const scope = beginScope();
