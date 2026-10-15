@@ -24,6 +24,8 @@ Think of it as three things in one process:
 - **Not a window manager.** We don't tile, move, or react to other apps' windows.
 - **No exclusive zones.** macOS can't reserve screen space. Bars overlay. Users set padding in their WM.
 - **No interception of system UI:** notifications, other apps' menu-bar extras, the Dock, the system volume/brightness HUD. A halo OSD can react to volume changes, but the system HUD still appears.
+- **No widgets over fullscreen apps.** Every surface, on every layer, is hidden while a fullscreen app is showing. Deliberate and not configurable.
+- **No native multi-Space support.** Surfaces live on one Space. The target users run tiling WMs (AeroSpace and similar) that keep everything in a single Space. With several native Spaces, widgets only show on the Space they were created on; that's accepted, not a bug. This is also what keeps widgets out of fullscreen (verified on macOS 27): any panel with `.canJoinAllSpaces` shows over fullscreen apps at `aboveMenu`/`overlay`, even without `.fullScreenAuxiliary`, while single-Space panels are hidden by macOS itself.
 - **No Spaces introspection of our own.** Workspace state comes from outside (AeroSpace and similar) through signals.
 - No SwiftUI in the widget layer. AppKit/SwiftUI may be used for incidental host UI only, if any.
 
@@ -59,7 +61,7 @@ A Swift protocol so placement and rendering never touch window APIs directly:
 - set input policy (passthrough / hover / interactive, **never** activating)
 - `transaction { … }` to batch changes across many surfaces
 
-**PublicBackend (default, required to be complete):** borderless `NSPanel` with `.nonactivatingPanel`, `ignoresMouseEvents` for passthrough, `isOpaque = false`, clear background, layer-backed content view. Space policy maps onto `collectionBehavior` (`.canJoinAllSpaces`, `.stationary`, `.fullScreenAuxiliary`, `.ignoresCycle`). Levels use `NSWindow.Level` / `CGWindowLevelForKey`. Batching goes through `CATransaction` plus `NSAnimationContext` with animations disabled.
+**PublicBackend (default, required to be complete):** borderless `NSPanel` with `.nonactivatingPanel`, `ignoresMouseEvents` for passthrough, `isOpaque = false`, clear background, layer-backed content view. `collectionBehavior` is always `.stationary` + `.ignoresCycle`: one Space, unaffected by Mission Control, skipped by window cycling. Never `.canJoinAllSpaces` or `.fullScreenAuxiliary` (see Non-goals). Levels use `NSWindow.Level` / `CGWindowLevelForKey`. Batching goes through `CATransaction` plus `NSAnimationContext` with animations disabled.
 
 **SkyLightBackend (optional, flagged private):** modeled on SketchyBar's `window.c` / `surface.c`. Raw `SLSNewWindowWithOpaqueShapeAndContext` windows, a private Space for true stickiness, `SLSTransaction*` for atomic multi-surface updates, and ordering groups. Build it only if the public backend proves insufficient for a concrete case. Keep it behind a compile flag.
 
@@ -74,7 +76,6 @@ A `Surface` is configured declaratively from TSX:
 | `margins` | per-edge insets |
 | `size` | fixed width/height, or `"fill"` along anchored axes |
 | `layer` | `desktop` · `belowMenu` · `aboveMenu` · `overlay` |
-| `spaces` | `all` · `current` (follows the active Space) |
 | `input` | `passthrough` · `hover` · `interactive` |
 | `avoid` | `notch`, `menuBar`: placement shifts around them |
 | `visible` | bool (hidden surfaces are kept, not destroyed) |
@@ -155,7 +156,7 @@ Services are lazy: the native observer starts when a signal gets its first subsc
 
 ## Private API policy (important)
 
-The MVP ships **no** private APIs. The rules below apply once one is added. `halo/private/*` and `PrivateBridges` don't exist yet. Known candidates for later: MediaRemote (now playing), SkyLight (sticky surfaces, custom blur radius), DisplayServices (display brightness), CoreBrightness (keyboard backlight).
+The MVP ships **no** private APIs. The rules below apply once one is added. `halo/private/*` and `PrivateBridges` don't exist yet. Known candidates for later: MediaRemote (now playing), SkyLight (custom blur radius; sticky surfaces only if native multi-Space support is ever wanted), DisplayServices (display brightness), CoreBrightness (keyboard backlight).
 
 1. **Public by default.** Every core feature (surfaces, placement, rendering, IPC) must work with public APIs only.
 2. **Private APIs are opt-in and visible at the import site:** `import { nowPlaying } from "halo/private/media"`. Never re-export private modules from public ones.
@@ -181,7 +182,7 @@ export default () => (
   <PerScreen>
     {(screen) => (
       <Surface screen={screen} anchor={["top", "left", "right"]} size={{ height: 32 }}
-               layer="belowMenu" spaces="all" input="interactive" avoid={["notch"]}>
+               layer="belowMenu" input="interactive" avoid={["notch"]}>
         <Box style={{ flexDirection: "row", justify: "space-between", padding: [0, 10] }}>
           <Text>{() => `WS ${ws()}`}</Text>
           <Text>{() => `${battery.percent()}% · ${time()}`}</Text>
@@ -248,7 +249,6 @@ Tests/
 
 ## Open questions
 
-- Does `NSPanel` + `.canJoinAllSpaces` + `.stationary` behave correctly over fullscreen apps and during Mission Control on current macOS? If not, that's the first real case for the SkyLight backend.
 - Font fallback and SF Symbols rendering inside `CATextLayer` vs custom CoreText drawing.
 
 ## References

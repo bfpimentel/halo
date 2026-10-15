@@ -48,10 +48,6 @@ public enum SurfaceLayer: Sendable, Hashable {
     case desktop, belowMenu, aboveMenu, overlay
 }
 
-public enum SpacePolicy: Sendable, Hashable {
-    case all, current
-}
-
 public enum InputPolicy: Sendable, Hashable {
     case passthrough, hover, interactive
 }
@@ -70,7 +66,6 @@ public struct SurfaceConfig: Sendable, Hashable {
     public var margins: Insets
     public var size: SurfaceSize
     public var layer: SurfaceLayer
-    public var spaces: SpacePolicy
     public var input: InputPolicy
     public var avoid: Avoid
     public var visible: Bool
@@ -81,7 +76,6 @@ public struct SurfaceConfig: Sendable, Hashable {
         margins: Insets = .zero,
         size: SurfaceSize = SurfaceSize(),
         layer: SurfaceLayer = .belowMenu,
-        spaces: SpacePolicy = .all,
         input: InputPolicy = .passthrough,
         avoid: Avoid = [],
         visible: Bool = true
@@ -91,7 +85,6 @@ public struct SurfaceConfig: Sendable, Hashable {
         self.margins = margins
         self.size = size
         self.layer = layer
-        self.spaces = spaces
         self.input = input
         self.avoid = avoid
         self.visible = visible

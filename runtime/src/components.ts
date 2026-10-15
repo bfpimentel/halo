@@ -150,7 +150,6 @@ export interface SurfaceProps {
   margins?: Reactive<Spacing>;
   size?: Reactive<{ width?: number | "fill"; height?: number | "fill" }>;
   layer?: Reactive<"desktop" | "belowMenu" | "aboveMenu" | "overlay">;
-  spaces?: Reactive<"all" | "current">;
   input?: Reactive<"passthrough" | "hover" | "interactive">;
   avoid?: Reactive<("notch" | "menuBar")[]>;
   visible?: Reactive<boolean>;
@@ -171,7 +170,6 @@ export function Surface(props: SurfaceProps): null {
       margins: read(props.margins),
       size: read(props.size),
       layer: read(props.layer),
-      spaces: read(props.spaces),
       input: read(props.input),
       avoid: read(props.avoid),
       visible: read(props.visible),

@@ -48,6 +48,9 @@ final class PanelSurface: BackendSurface {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
+        // One Space only (tiling WMs like AeroSpace keep everything in one): macOS then keeps the panel out of
+        // fullscreen Spaces by itself, and `.stationary` holds it in place during Mission Control.
+        panel.collectionBehavior = [.stationary, .ignoresCycle]
 
         let view = FlippedView()
         view.wantsLayer = true
@@ -67,13 +70,6 @@ final class PanelSurface: BackendSurface {
         case .belowMenu: NSWindow.Level(Int(CGWindowLevelForKey(.backstopMenu)))
         case .aboveMenu: NSWindow.Level(Int(CGWindowLevelForKey(.statusWindow)))
         case .overlay: NSWindow.Level(Int(CGWindowLevelForKey(.popUpMenuWindow)))
-        }
-    }
-
-    func setSpaces(_ spaces: SpacePolicy) {
-        panel.collectionBehavior = switch spaces {
-        case .all: [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        case .current: [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         }
     }
 

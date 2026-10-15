@@ -102,7 +102,6 @@ enum Conversions {
         case "overlay": config.layer = .overlay
         default: config.layer = .belowMenu
         }
-        config.spaces = value.forProperty("spaces")?.toString() == "current" ? .current : .all
         switch value.forProperty("input")?.toString() {
         case "hover": config.input = .hover
         case "interactive": config.input = .interactive

@@ -25,7 +25,6 @@ private final class FakeSurface: BackendSurface {
 
     func setFrame(_ frame: CGRect) {}
     func setLayer(_ layer: SurfaceLayer) {}
-    func setSpaces(_ spaces: SpacePolicy) {}
     func setInput(_ input: InputPolicy) {}
     func setVisible(_ visible: Bool) {}
     func destroy() { backend?.liveSurfaces -= 1 }

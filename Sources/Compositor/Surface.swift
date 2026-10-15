@@ -12,7 +12,6 @@ public final class Surface {
         self.config = config
         backing = backend.makeSurface()
         backing.setLayer(config.layer)
-        backing.setSpaces(config.spaces)
         backing.setInput(config.input)
         place(on: screen)
         backing.setVisible(config.visible)
@@ -22,7 +21,6 @@ public final class Surface {
         let old = config
         config = newConfig
         if newConfig.layer != old.layer { backing.setLayer(newConfig.layer) }
-        if newConfig.spaces != old.spaces { backing.setSpaces(newConfig.spaces) }
         if newConfig.input != old.input { backing.setInput(newConfig.input) }
         place(on: screen)
         if newConfig.visible != old.visible { backing.setVisible(newConfig.visible) }

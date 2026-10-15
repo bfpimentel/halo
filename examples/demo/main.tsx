@@ -19,7 +19,7 @@ function Workspace(props: { name: string; active?: boolean }) {
 function TopBar(props: { screen: ScreenInfo }) {
   return (
     <Surface screen={props.screen} anchor={["top", "left", "right"]} margins={[4, 8, 0, 8]} size={{ height: 32 }}
-             layer="aboveMenu" avoid={["menuBar", "notch"]}>
+             layer="belowMenu" avoid={["menuBar", "notch"]}>
       <Box style={{ flexDirection: "row", justify: "space-between", align: "center", padding: [0, 10], background: surface, radius: 8 }}>
         <Box style={{ flexDirection: "row", align: "center", gap: 6 }}>
           <Image symbol="square.grid.2x2" size={14} color={accent} />
