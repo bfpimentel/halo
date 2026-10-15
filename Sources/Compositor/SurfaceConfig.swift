@@ -100,9 +100,15 @@ public struct ScreenInfo: Sendable, Hashable {
     public var menuBarHeight: CGFloat
     public var notch: CGRect?
     public var scale: CGFloat
+    /// 1-based position in `NSScreen.screens`, which is how tools like AeroSpace refer to displays.
+    public var index: Int
 
-    public init(id: ScreenID, name: String, frame: CGRect, menuBarHeight: CGFloat = 0, notch: CGRect? = nil, scale: CGFloat = 1) {
+    public init(
+        id: ScreenID, name: String, frame: CGRect,
+        menuBarHeight: CGFloat = 0, notch: CGRect? = nil, scale: CGFloat = 1, index: Int = 1
+    ) {
         self.id = id
+        self.index = index
         self.name = name
         self.frame = frame
         self.menuBarHeight = menuBarHeight

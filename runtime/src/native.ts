@@ -10,6 +10,8 @@ export interface ScreenInfo {
   name: string;
   frame: Rect;
   scale: number;
+  /// 1-based position in macOS's display list (AeroSpace's `monitor-appkit-nsscreen-screens-id`).
+  index: number;
   menuBarHeight: number;
   notch: Rect | null;
 }
@@ -37,11 +39,14 @@ export interface Native {
   clearTimer(id: number): void;
   exec(command: string, args: string[], done: (result: ExecResult) => void): void;
   formatDate(pattern: string, epochMs: number): string;
+  /// Latest payload the host received for an external event, kept across reloads.
+  lastEvent(name: string): Record<string, string> | null;
 }
 
 /// Functions the host calls into.
 export interface HostHooks {
   onScreens?: (screens: ScreenInfo[]) => void;
+  onEvent?: (name: string, payload: Record<string, string>) => void;
   dispose?: () => void;
 }
 

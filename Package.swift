@@ -5,7 +5,7 @@ let package = Package(
     name: "halo",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "halo-host", targets: ["HaloHost"]),
+        .executable(name: "halo", targets: ["HaloCLI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/facebook/yoga.git", exact: "3.2.1"),
@@ -14,7 +14,9 @@ let package = Package(
         .target(name: "Compositor"),
         .target(name: "Render", dependencies: [.product(name: "yoga", package: "yoga")]),
         .target(name: "JSRuntime", dependencies: ["Compositor", "Render"]),
-        .executableTarget(name: "HaloHost", dependencies: ["Compositor", "Render", "JSRuntime"]),
+        .target(name: "IPC"),
+        .target(name: "HaloHost", dependencies: ["Compositor", "Render", "JSRuntime", "IPC"]),
+        .executableTarget(name: "HaloCLI", dependencies: ["HaloHost", "IPC"]),
         .testTarget(name: "CompositorTests", dependencies: ["Compositor"]),
         .testTarget(name: "RenderTests", dependencies: ["Render"]),
         .testTarget(
@@ -22,5 +24,6 @@ let package = Package(
             dependencies: ["JSRuntime", "Compositor", "Render"],
             exclude: ["Fixtures"]
         ),
+        .testTarget(name: "IPCTests", dependencies: ["IPC"]),
     ]
 )

@@ -1,6 +1,6 @@
 import { reportError } from "./host";
 import { native, type ScreenInfo } from "./native";
-import { effect, getOwner, onCleanup, root, runWithOwner, signal, untrack, type Accessor } from "./signals";
+import { effect, getOwner, onCleanup, root, runWithOwner, signal, untrack, type Accessor } from "./reactive";
 
 export type Reactive<T> = T | Accessor<T>;
 

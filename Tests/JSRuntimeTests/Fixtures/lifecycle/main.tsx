@@ -3,6 +3,8 @@ import { clock } from "halo/services";
 import { signal } from "halo/signals";
 
 const items = signal([1, 2, 3]);
+const minutes = clock.format("HH:mm");
+setInterval(() => minutes(), 60_000);
 (globalThis as any).__test = {
   setItems: (count: number) => items.set(Array.from({ length: count }, (_, i) => i)),
 };

@@ -30,6 +30,7 @@ public final class Runtime {
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
     private var processes: [Int: (process: Process, callback: JSValue)] = [:]
     private var formatters: [String: DateFormatter] = [:]
+    private var lastEvents: [String: [String: String]]
     private var nextID = 1
     private var disposed = false
 
@@ -37,9 +38,11 @@ public final class Runtime {
         Counts(nodes: nodes.count, surfaces: surfaces.count, timers: timers.count)
     }
 
-    public init(backend: CompositorBackend, screens: [ScreenInfo]) {
+    /// `events` holds the latest payload per external event name, so a fresh load starts from known state.
+    public init(backend: CompositorBackend, screens: [ScreenInfo], events: [String: [String: String]] = [:]) {
         self.backend = backend
         self.screens = screens
+        lastEvents = events
         context = JSContext()
         context.name = "halo"
         context.exceptionHandler = { _, exception in
@@ -64,6 +67,15 @@ public final class Runtime {
         let hook = context.objectForKeyedSubscript("__halo")?.objectForKeyedSubscript("onScreens")
         if let hook, !hook.isUndefined {
             hook.call(withArguments: [infos.map(Conversions.screen)])
+        }
+    }
+
+    public func deliver(event name: String, payload: [String: String]) {
+        guard !disposed else { return }
+        lastEvents[name] = payload
+        let hook = context.objectForKeyedSubscript("__halo")?.objectForKeyedSubscript("onEvent")
+        if let hook, !hook.isUndefined {
+            hook.call(withArguments: [name, payload])
         }
     }
 
@@ -258,6 +270,10 @@ extension Runtime {
                 }
             }
         }
+    }
+
+    func lastEvent(_ name: String) -> [String: String]? {
+        lastEvents[name]
     }
 
     func formatDate(_ pattern: String, _ epochMilliseconds: Double) -> String {

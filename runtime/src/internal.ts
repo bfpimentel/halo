@@ -1,5 +1,9 @@
-import { installGlobals, mount } from "./host";
+import { installGlobals, mount as mountApp } from "./host";
+import { beginScope } from "./reactive";
 
 installGlobals();
+const scope = beginScope();
 
-export { mount };
+export function mount(app: unknown): void {
+  mountApp(scope, app);
+}

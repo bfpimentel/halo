@@ -28,10 +28,12 @@ public final class Screens {
 
     public static func snapshot() -> [ScreenInfo] {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        return NSScreen.screens.compactMap { info(for: $0, primaryHeight: primaryHeight) }
+        return NSScreen.screens.enumerated().compactMap { offset, screen in
+            info(for: screen, index: offset + 1, primaryHeight: primaryHeight)
+        }
     }
 
-    private static func info(for screen: NSScreen, primaryHeight: CGFloat) -> ScreenInfo? {
+    private static func info(for screen: NSScreen, index: Int, primaryHeight: CGFloat) -> ScreenInfo? {
         guard let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
             return nil
         }
@@ -47,7 +49,7 @@ public final class Screens {
 
         return ScreenInfo(
             id: id, name: screen.localizedName, frame: frame,
-            menuBarHeight: menuBarHeight, notch: notch, scale: screen.backingScaleFactor
+            menuBarHeight: menuBarHeight, notch: notch, scale: screen.backingScaleFactor, index: index
         )
     }
 }

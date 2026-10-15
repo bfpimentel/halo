@@ -1,5 +1,5 @@
 import { native } from "./native";
-import { onCleanup, signal, type Accessor, type Signal } from "./signals";
+import { onCleanup, signal, type Accessor, type Signal } from "./reactive";
 
 interface Ticker {
   now: Signal<number>;

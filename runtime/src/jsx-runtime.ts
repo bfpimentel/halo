@@ -1,5 +1,5 @@
 import type { Element as HaloElement } from "./components";
-import { untrack } from "./signals";
+import { untrack } from "./reactive";
 
 type Component<P> = (props: P) => HaloElement;
 

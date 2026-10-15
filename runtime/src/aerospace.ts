@@ -1,0 +1,74 @@
+import { screens } from "./components";
+import { externalSignal } from "./external";
+import { sh } from "./host";
+import type { ScreenInfo } from "./native";
+import { computed, effect, signal, type Accessor } from "./reactive";
+
+export interface Workspace {
+  name: string;
+  /// The halo display (`ScreenInfo.id`) showing this workspace, matched exactly through the macOS display index.
+  screen: number | undefined;
+  focused: boolean;
+  empty: boolean;
+}
+
+const separator = "--halo--";
+const query =
+  `aerospace list-workspaces --monitor all --format '%{workspace}|%{monitor-appkit-nsscreen-screens-id}'` +
+  ` && echo ${separator} && aerospace list-workspaces --focused` +
+  ` && echo ${separator} && aerospace list-workspaces --monitor all --empty no`;
+
+/// AeroSpace workspaces, refreshed on every `aerospace.workspace` / `aerospace.focus` trigger (see examples/aerospace).
+/// Call once per config, at module level or inside a component.
+export function aerospace(options: { command?: string } = {}) {
+  const event = externalSignal("aerospace.workspace", { parse: (payload) => ({ ...payload }) });
+  const focusEvent = externalSignal("aerospace.focus", { parse: (payload) => ({ ...payload }) });
+  const raw = signal<string | undefined>(undefined);
+  const command = options.command ?? query;
+
+  let generation = 0;
+  effect(() => {
+    event();
+    focusEvent();
+    const current = ++generation;
+    sh(command).then((result) => {
+      if (current !== generation) return;
+      if (result.code !== 0) return console.warn(`aerospace: query failed (${result.code}): ${result.stderr.trim()}`);
+      raw.set(result.stdout);
+    });
+  });
+
+  const warned = new Set<string>();
+  const workspaces = computed<Workspace[]>(() => {
+    const output = raw();
+    if (output === undefined) return [];
+    const [all = "", focusedOutput = "", nonEmpty = ""] = output.split(separator);
+    const focused = event()?.focused ?? focusedOutput.trim();
+    const occupied = new Set(nonEmpty.split("\n").map((line) => line.trim()).filter(Boolean));
+    const byIndex = new Map<number, ScreenInfo>(screens().map((screen) => [screen.index, screen]));
+    return all
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name = "", index = ""] = line.split("|");
+        const screen = byIndex.get(Number(index));
+        if (!screen && !warned.has(index)) {
+          warned.add(index);
+          console.warn(`aerospace: no display at macOS index ${index} for workspace ${name}; it won't be shown`);
+        }
+        return { name, screen: screen?.id, focused: name === focused, empty: !occupied.has(name) };
+      });
+  });
+
+  return {
+    workspaces,
+    focused: computed(() => workspaces().find((workspace) => workspace.focused)?.name),
+    /// Workspaces on one display, in AeroSpace's order.
+    on(screen: ScreenInfo): Accessor<Workspace[]> {
+      return computed(() => workspaces().filter((workspace) => workspace.screen === screen.id), {
+        equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+      });
+    },
+  };
+}

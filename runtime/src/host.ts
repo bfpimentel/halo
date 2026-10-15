@@ -1,5 +1,5 @@
 import { native, type ExecResult } from "./native";
-import { getOwner, onCleanup, root, setErrorHandler, signal, type Accessor } from "./signals";
+import { endScope, getOwner, onCleanup, runWithOwner, setErrorHandler, signal, type Accessor, type OwnerHandle } from "./reactive";
 
 function format(value: unknown): string {
   if (value instanceof Error) return value.stack ? `${value.message}\n${value.stack}` : value.message;
@@ -76,13 +76,15 @@ export function poll(command: string, intervalMs: number, initial = ""): Accesso
   return output;
 }
 
-export function mount(app: unknown): void {
-  root((dispose) => {
-    globalThis.__halo.dispose = dispose;
+/// `scope` was opened before the config's modules ran, so it owns their top-level effects and timers too.
+export function mount(scope: OwnerHandle, app: unknown): void {
+  globalThis.__halo.dispose = () => scope.dispose();
+  runWithOwner(scope, () => {
     try {
       if (typeof app === "function") app();
     } catch (error) {
       reportError(error);
     }
   });
+  endScope();
 }

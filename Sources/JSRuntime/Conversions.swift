@@ -123,6 +123,7 @@ enum Conversions {
             "name": info.name,
             "frame": rect(info.frame),
             "scale": info.scale,
+            "index": info.index,
             "menuBarHeight": info.menuBarHeight,
             "notch": info.notch.map(rect) ?? NSNull(),
         ]

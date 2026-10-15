@@ -55,6 +55,12 @@ enum Bridge {
         let exec: @convention(block) (String, [String], JSValue) -> Void = { command, arguments, callback in
             MainActor.assumeIsolated { runtime?.exec(command, arguments, callback) }
         }
+        let lastEvent: @convention(block) (String) -> JSValue? = { name in
+            nonisolated(unsafe) var payload: [String: String]?
+            MainActor.assumeIsolated { payload = runtime?.lastEvent(name) }
+            guard let context = JSContext.current() else { return nil }
+            return payload.map { JSValue(object: $0, in: context) } ?? JSValue(nullIn: context)
+        }
         let formatDate: @convention(block) (String, Double) -> String = { pattern, ms in
             MainActor.assumeIsolated { runtime?.formatDate(pattern, ms) ?? "" }
         }
@@ -73,6 +79,7 @@ enum Bridge {
         define("setTimer", setTimer)
         define("clearTimer", clearTimer)
         define("exec", exec)
+        define("lastEvent", lastEvent)
         define("formatDate", formatDate)
         context.setObject(native, forKeyedSubscript: "__native" as NSString)
     }

@@ -142,17 +142,18 @@ Services are lazy: the native observer starts when a signal gets its first subsc
 
 ### 7. External signals and IPC
 
-- The host listens on a Unix domain socket. The `halo` CLI is a thin client.
-- `halo trigger <name> [key=value ...]` emits a named event with a string-map payload. In JS, `externalSignal(name, { initial?, hydrate? })` returns a signal of the latest payload.
-- `hydrate` is a shell command run on load and after reload, so state is correct before the first event arrives.
-- Example, AeroSpace (`~/.aerospace.toml`):
+- One binary, `halo`. `halo start [--config <dir>]` runs the host in the foreground (also what `brew services` runs). Every other command is a thin client of the running host.
+- Socket: `$TMPDIR/halo.sock` (per-user temp dir, `HALO_SOCKET` overrides it). Protocol (`Sources/IPC`): one JSON `Request` line per connection, answered with one JSON `Response` line. `halo start` refuses to run if a live host already answers there, and removes a stale socket file.
+- `halo trigger <name> [key=value ...]` emits a named event with a string-map payload (split on the first `=`). The host keeps the latest payload per name, so a reloaded config starts from it.
+- `externalSignal(name, { initial?, hydrate?, parse? })` (`halo/signals`) returns a signal of the latest parsed payload. `parse` returning `undefined` ignores that payload. `hydrate` is a shell command run on every load; its result arrives as `{ stdout, stderr, code }` and is dropped if a live event got there first.
+- `halo/aerospace`: `aerospace()` gives `workspaces()`, `focused()` and `on(screen)`. It re-queries AeroSpace on every `aerospace.workspace` / `aerospace.focus` event, not by polling. Monitors map exactly through AeroSpace's `%{monitor-appkit-nsscreen-screens-id}` = `ScreenInfo.index` (1-based `NSScreen.screens` order); an unmatched one is logged, never guessed. Setup lives in `examples/aerospace/main.tsx`:
   ```toml
   exec-on-workspace-change = ['/bin/bash', '-c',
     'halo trigger aerospace.workspace focused=$AEROSPACE_FOCUSED_WORKSPACE prev=$AEROSPACE_PREV_WORKSPACE']
+  on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']   # optional: keeps "empty" fresh
   ```
-  with `hydrate: "aerospace list-workspaces --focused"` and `"aerospace list-workspaces --all"`.
-- AeroSpace monitor ids don't match `NSScreen` ids. Provide a helper that maps them by name or frame. Don't guess silently.
-- Other CLI commands: `halo reload`, `halo quit`, `halo log` (tail), `halo inspect` (dump surfaces and node tree as JSON, for debugging).
+- Other commands: `halo reload`, `halo quit` (disposes the config, removes the socket), `halo log` (`tail -F` of `$TMPDIR/halo.log`, truncated at each start). Not yet: `halo inspect` (M7).
+- Socket I/O happens off the main thread and requests are handled on main. Sockets are `SO_NOSIGPIPE` and the host ignores SIGPIPE: a client that hangs up early must never kill it.
 
 ## Private API policy (important)
 
@@ -170,7 +171,7 @@ The MVP ships **no** private APIs. The rules below apply once one is added. `hal
 // ~/.config/halo/main.tsx
 import { PerScreen, Surface, Box, Text } from "halo";
 import { clock, battery } from "halo/services"; // battery: M5
-import { externalSignal } from "halo/signals"; // externalSignal: M4
+import { externalSignal } from "halo/signals";
 
 const time = clock.format("HH:mm");
 const ws = externalSignal("aerospace.workspace", {
@@ -197,23 +198,24 @@ Treat this as a design target, not a frozen API. Update it here when the API cha
 
 ## Tech stack and repo layout
 
-- **Host:** Swift (SwiftPM), macOS 14+ minimum (revisit if needed). A plain executable, not a `.app`: it sets the `.accessory` activation policy at startup, so it has no Dock icon and no app menu.
+- **Host:** Swift (SwiftPM), macOS 14+ minimum (revisit if needed). A single plain executable, `halo`, not a `.app`: `halo start` sets the `.accessory` activation policy, so it has no Dock icon and no app menu.
 - **Distribution:** unsigned, via Homebrew. The formula builds from source (`swift build -c release`), depends on the `esbuild` formula, and ships a `brew services` launchd plist for launch at login. Anything that needs a TCC usage description or an entitlement is out of scope.
-- **User config:** `$XDG_CONFIG_HOME/halo` (default `~/.config/halo`), entry `main.tsx`, imports between files allowed. `--config <dir>` overrides it.
+- **User config:** `$XDG_CONFIG_HOME/halo` (default `~/.config/halo`), entry `main.tsx`, imports between files allowed. `halo start --config <dir>` overrides it. Module-level code (top-level `clock.format`, `externalSignal`, `setInterval`…) runs inside the config's root scope, so a reload disposes it like component code.
 - **Native deps:** Yoga (SwiftPM dependency on `facebook/yoga`, pinned exact; `import yoga`), esbuild (external, see JS runtime).
 - **JS runtime library:** TypeScript, ships `.d.ts` so user configs get full type checking.
 
 ```
 Package.swift
 Sources/
-  HaloHost/          # entry point, run loop, IPC server, reload
+  HaloCLI/           # the `halo` executable: argument parsing, `start` → HaloHost, other commands → socket client
+  HaloHost/          # library: `runHost`, run loop, IPC server, config watcher, reload
+  IPC/               # protocol (Request/Response/Command parsing) and Unix socket helpers, shared by both sides
   Compositor/        # Backend protocol, PublicBackend, Surface, placement
   Render/            # Node, Yoga bridge, CALayer mapping, text, hit-testing
-  JSRuntime/         # JSContext setup, host APIs, module loader, esbuild invocation
-  Services/          # public services
-  PrivateBridges/    # C/ObjC private API shims (opt-in)
-  HaloCLI/           # `halo` client
-runtime/             # TS: jsx-runtime, signals, primitives, service typings
+  JSRuntime/         # JSContext setup, bridge, host APIs, esbuild invocation, logging
+  Services/          # public services (M5)
+  PrivateBridges/    # C/ObjC private API shims (opt-in, not created yet)
+runtime/             # TS: reactive core, signals (+externalSignal), jsx-runtime, components, services, aerospace
 examples/            # sample configs (bar, floating panel, OSD)
 docs/                # private-apis.md, design notes
 Tests/
@@ -222,8 +224,9 @@ Tests/
 ## Build and run
 
 - build: `swift build`
-- run dev: `swift run halo-host --config examples/demo` (without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr.
-- tests: `swift test` (Swift Testing: placement math, render-tree invalidation, config lifecycle/reload leaks; the lifecycle suite needs esbuild) and `cd runtime && bun test` (signal graph).
+- run dev: `swift run halo start --config examples/demo` (or `examples/aerospace`, `examples/signals`; without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr and `$TMPDIR/halo.log`.
+- control it: `swift run halo trigger <name> k=v`, `halo reload`, `halo quit`, `halo log`.
+- tests: `swift test` (Swift Testing: placement math, render-tree invalidation, config lifecycle/reload leaks, external signals, IPC parsing; the JSRuntime suites need esbuild) and `cd runtime && bun test` (signal graph).
 
 ## Conventions
 
