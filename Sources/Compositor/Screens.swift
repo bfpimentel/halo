@@ -45,6 +45,9 @@ public final class Screens {
             notch = CGRect(x: minX, y: frame.minY, width: maxX - minX, height: screen.safeAreaInsets.top)
         }
 
-        return ScreenInfo(id: id, name: screen.localizedName, frame: frame, menuBarHeight: menuBarHeight, notch: notch)
+        return ScreenInfo(
+            id: id, name: screen.localizedName, frame: frame,
+            menuBarHeight: menuBarHeight, notch: notch, scale: screen.backingScaleFactor
+        )
     }
 }

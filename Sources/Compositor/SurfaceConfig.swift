@@ -106,12 +106,14 @@ public struct ScreenInfo: Sendable, Hashable {
     /// Height reserved by the menu bar at the top of this screen; 0 when it auto-hides.
     public var menuBarHeight: CGFloat
     public var notch: CGRect?
+    public var scale: CGFloat
 
-    public init(id: ScreenID, name: String, frame: CGRect, menuBarHeight: CGFloat = 0, notch: CGRect? = nil) {
+    public init(id: ScreenID, name: String, frame: CGRect, menuBarHeight: CGFloat = 0, notch: CGRect? = nil, scale: CGFloat = 1) {
         self.id = id
         self.name = name
         self.frame = frame
         self.menuBarHeight = menuBarHeight
         self.notch = notch
+        self.scale = scale
     }
 }

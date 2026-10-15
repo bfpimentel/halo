@@ -1,0 +1,15 @@
+{
+  "originHash" : "b587806f86e30842c8bdcb62a0ec8fc862d7bd002c577bf6affa644c8552d17c",
+  "pins" : [
+    {
+      "identity" : "yoga",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/facebook/yoga.git",
+      "state" : {
+        "revision" : "042f5013152eb81c1552dec945b88f7b95ca350f",
+        "version" : "3.2.1"
+      }
+    }
+  ],
+  "version" : 3
+}

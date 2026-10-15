@@ -1,0 +1,53 @@
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ScreenInfo {
+  id: number;
+  name: string;
+  frame: Rect;
+  scale: number;
+  menuBarHeight: number;
+  notch: Rect | null;
+}
+
+export interface ExecResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
+
+/// Installed by the Swift host (`JSRuntime/Bridge.swift`). Ids are plain integers owned by the host.
+export interface Native {
+  log(level: "log" | "warn" | "error", message: string): void;
+  createNode(kind: "box" | "text" | "image"): number;
+  setStyle(id: number, key: string, value: unknown): void;
+  setProp(id: number, key: string, value: unknown): void;
+  insert(parent: number, child: number, index: number): void;
+  detach(id: number): void;
+  destroyNode(id: number): void;
+  createSurface(root: number, config: object): number;
+  updateSurface(id: number, config: object): void;
+  destroySurface(id: number): void;
+  screens(): ScreenInfo[];
+  setTimer(ms: number, repeats: boolean, fn: () => void): number;
+  clearTimer(id: number): void;
+  exec(command: string, args: string[], done: (result: ExecResult) => void): void;
+  formatDate(pattern: string, epochMs: number): string;
+}
+
+/// Functions the host calls into.
+export interface HostHooks {
+  onScreens?: (screens: ScreenInfo[]) => void;
+  dispose?: () => void;
+}
+
+declare global {
+  var __native: Native;
+  var __halo: HostHooks;
+}
+
+export const native: Native = globalThis.__native;

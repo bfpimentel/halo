@@ -114,12 +114,14 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
 ### 5. JS runtime
 
 - **JavaScriptCore** (`JSContext`, `JSExport`), the public system framework. No bundled engine.
-- **TS/TSX compilation:** esbuild, run by the host as a short-lived subprocess at load and reload. It's resolved from `HALO_ESBUILD`, then `PATH`, then `runtime/node_modules/.bin/esbuild` in dev. Output is one ESM bundle per config. Source maps are on so errors point to the user's `.tsx` lines.
-- **Signals:** a small in-house implementation (`signal`, `computed`, `effect`, `batch`, `untrack`, `onCleanup`) in Solid's style. No framework dependency. `batch` also wraps the native transaction so one JS tick produces one compositor commit.
+- **TS/TSX compilation:** esbuild, run by the host as a short-lived subprocess at load and reload. It's resolved from `HALO_ESBUILD`, then `PATH`, then `runtime/node_modules/.bin/esbuild` in dev. The host feeds esbuild a generated entry (`import { mount } from "halo/internal"` + the config's absolute `main.tsx`) and gets back one IIFE script; `halo` is aliased to `runtime/src`, so `halo/<module>` maps to `runtime/src/<module>.ts`. Not done yet: source maps (errors currently point at bundle lines; planned for M7).
+- **Signals** (`runtime/src/signals.ts`): `signal`, `computed`, `effect`, `batch`, `untrack`, `onCleanup`, `root`, `getOwner`/`runWithOwner`. `signal(v)` returns an accessor with `.set` / `.update`. Glitch-free (mark DIRTY/CHECK, then pull), and effects re-collect dependencies on every run. No framework dependency. A throwing effect is logged and doesn't stop others. One JS tick produces one compositor commit because layout is coalesced per run-loop pass on the Swift side.
+- **JSX** (`runtime/src/components.ts`): components run once, untracked. A function child is a reactive slot (`{() => list().map(...)}`) whose previous nodes are destroyed on re-run. Strings inside `<Box>` become `<Text>`. In `<Text>`, only function children are reactive: write `{() => `WS ${ws()}`}`, not `WS {ws()}`. Text styling (`color`, `fontSize`, `fontWeight`, `fontFamily`) lives in `style`. `<Image>` takes `symbol`, `app` (bundle id) or `file`, plus `size` and `color`. A `<Surface>` with exactly one node child uses it as its root (so it fills the surface); otherwise its children are wrapped in a `<Box>`.
+- **Bridge** (`runtime/src/native.ts` ↔ `Sources/JSRuntime/Bridge.swift`): `globalThis.__native` with integer handles for nodes, surfaces and timers. Each `Runtime` (one per load) owns a fresh `JSContext` plus registries of everything it created. On reload it calls the config's root `dispose` first, logs anything still alive as a leak, then force-releases it.
 - **Host APIs** JSC doesn't provide (all promise-based):
   - `setTimeout` / `setInterval` / `queueMicrotask`
-  - `exec(cmd, args)` → `{ stdout, stderr, code }`; `spawn` with streaming lines
-  - `readFile` / `watchFile`
+  - `exec(cmd, args)` → `{ stdout, stderr, code }`, `sh(command)`. Not yet: `spawn` with streaming lines
+  - Not yet: `readFile` / `watchFile` (add when a widget needs them)
   - `poll(cmd, intervalMs)` → signal (convenience)
   - `console.*` → host log
 - **Hot reload:** watch the config dir, rebuild, dispose the old root (run all cleanups, tear down surfaces), mount the new one. Don't try to preserve state in v1.
@@ -133,7 +135,7 @@ Each service is a JS module exposing signals. It's backed by native code in Swif
 
 Services are lazy: the native observer starts when a signal gets its first subscriber and stops when the last one is cleaned up.
 
-**Gray zone:** undocumented but non-private mechanisms (IOKit registry keys like battery health, distributed notifications like `com.apple.screenIsLocked`, files like the Focus/DND assertions). These are normal services, not `halo:private`. Document them as "may return nothing" and never let them throw.
+**Gray zone:** undocumented but non-private mechanisms (IOKit registry keys like battery health, distributed notifications like `com.apple.screenIsLocked`, files like the Focus/DND assertions). These are normal services, not `halo/private`. Document them as "may return nothing" and never let them throw.
 
 **Private (flagged, not in the MVP):** `nowPlaying` via MediaRemote. The MVP path for media is a user script pushing state with `halo trigger`. Since macOS 15.4, MediaRemote only answers entitled processes. The known workaround runs it through a system binary that still has the entitlement (see the `mediaremote-adapter` project). Verify the current state before implementing.
 
@@ -153,10 +155,10 @@ Services are lazy: the native observer starts when a signal gets its first subsc
 
 ## Private API policy (important)
 
-The MVP ships **no** private APIs. The rules below apply once one is added. `halo:private/*` and `PrivateBridges` don't exist yet. Known candidates for later: MediaRemote (now playing), SkyLight (sticky surfaces, custom blur radius), DisplayServices (display brightness), CoreBrightness (keyboard backlight).
+The MVP ships **no** private APIs. The rules below apply once one is added. `halo/private/*` and `PrivateBridges` don't exist yet. Known candidates for later: MediaRemote (now playing), SkyLight (sticky surfaces, custom blur radius), DisplayServices (display brightness), CoreBrightness (keyboard backlight).
 
 1. **Public by default.** Every core feature (surfaces, placement, rendering, IPC) must work with public APIs only.
-2. **Private APIs are opt-in and visible at the import site:** `import { nowPlaying } from "halo:private/media"`. Never re-export private modules from public ones.
+2. **Private APIs are opt-in and visible at the import site:** `import { nowPlaying } from "halo/private/media"`. Never re-export private modules from public ones.
 3. Native private code lives in its own target (`PrivateBridges`) with hand-written headers. Each function has a comment naming the macOS versions it was verified on.
 4. **Fail soft:** a private service reports `{ available: false, reason }` instead of throwing or crashing. It probes availability at startup (`dlsym`, not hard linking).
 5. Every private symbol used is listed in `docs/private-apis.md` with purpose, verified versions, and fallback.
@@ -166,9 +168,10 @@ The MVP ships **no** private APIs. The rules below apply once one is added. `hal
 ```tsx
 // ~/.config/halo/main.tsx
 import { PerScreen, Surface, Box, Text } from "halo";
-import { clock, battery } from "halo:services";
-import { externalSignal } from "halo:signals";
+import { clock, battery } from "halo/services"; // battery: M5
+import { externalSignal } from "halo/signals"; // externalSignal: M4
 
+const time = clock.format("HH:mm");
 const ws = externalSignal("aerospace.workspace", {
   hydrate: "aerospace list-workspaces --focused",
   parse: (p) => p.focused ?? p.stdout?.trim(),
@@ -181,7 +184,7 @@ export default () => (
                layer="belowMenu" spaces="all" input="interactive" avoid={["notch"]}>
         <Box style={{ flexDirection: "row", justify: "space-between", padding: [0, 10] }}>
           <Text>{() => `WS ${ws()}`}</Text>
-          <Text>{() => `${battery.percent()}% · ${clock.format("HH:mm")()}`}</Text>
+          <Text>{() => `${battery.percent()}% · ${time()}`}</Text>
         </Box>
       </Surface>
     )}
@@ -196,7 +199,7 @@ Treat this as a design target, not a frozen API. Update it here when the API cha
 - **Host:** Swift (SwiftPM), macOS 14+ minimum (revisit if needed). A plain executable, not a `.app`: it sets the `.accessory` activation policy at startup, so it has no Dock icon and no app menu.
 - **Distribution:** unsigned, via Homebrew. The formula builds from source (`swift build -c release`), depends on the `esbuild` formula, and ships a `brew services` launchd plist for launch at login. Anything that needs a TCC usage description or an entitlement is out of scope.
 - **User config:** `$XDG_CONFIG_HOME/halo` (default `~/.config/halo`), entry `main.tsx`, imports between files allowed. `--config <dir>` overrides it.
-- **Native deps:** Yoga (vendored C sources), esbuild (external, see JS runtime).
+- **Native deps:** Yoga (SwiftPM dependency on `facebook/yoga`, pinned exact; `import yoga`), esbuild (external, see JS runtime).
 - **JS runtime library:** TypeScript, ships `.d.ts` so user configs get full type checking.
 
 ```
@@ -218,14 +221,16 @@ Tests/
 ## Build and run
 
 - build: `swift build`
-- run dev: `swift run halo-host` (M1: draws a static bar on every display; `--config <dir>` arrives with the JS runtime)
-- tests: `swift test` (Swift Testing; placement math so far). `runtime/` tests will use `bun test`.
+- run dev: `swift run halo-host --config examples/demo` (without `--config` it loads `$XDG_CONFIG_HOME/halo`). Edits under the config dir hot-reload; a failed build keeps the previous config running. Logs go to stderr.
+- tests: `swift test` (Swift Testing: placement math, render-tree invalidation, config lifecycle/reload leaks; the lifecycle suite needs esbuild) and `cd runtime && bun test` (signal graph).
 
 ## Conventions
 
 - Swift: no force-unwraps in runtime paths. All AppKit and Core Animation work happens on the main thread. Services may use background queues but publish to JS on main.
 - Ownership: every native object created for JS (node, surface, effect, timer, subprocess) is tied to a scope and released in its cleanup. Reload must leave zero leaked surfaces or processes. Test this.
 - Coordinate-space conversion happens only in `Compositor/Geometry.swift`.
+- Inside a surface, layers use top-left coordinates because the panel's content view is a flipped `NSView`. Never set `isGeometryFlipped` on a view's backing layer: AppKit resets it. `CALayer.render(in:)` ignores flipping, so offscreen snapshots show mirrored layouts.
+- Layers created for nodes have implicit animations disabled. Layout runs at most once per run-loop pass (`LayoutScheduler`), and only for roots whose Yoga tree is dirty.
 - Performance budget: idle CPU ~0%, no polling unless the user asked for `poll`. A signal update triggers no layout unless a layout-affecting prop changed.
 - Keep the TSX API small. Add a primitive or style prop only when an example widget needs it.
 - Tests only where logic is subtle or regressions are silent: placement math, the signal graph and ownership, reload leaks, IPC parsing. No tests for thin AppKit/service wrappers or for coverage's sake. Check those by running an example.

@@ -25,6 +25,11 @@ private final class Panel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// AppKit owns the flip state of a view's backing layer; a flipped view is the supported way to get top-left sublayers.
+private final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
+}
+
 @MainActor
 final class PanelSurface: BackendSurface {
     private let panel: Panel
@@ -44,11 +49,11 @@ final class PanelSurface: BackendSurface {
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
 
-        let view = NSView()
+        let view = FlippedView()
         view.wantsLayer = true
-        view.layer = rootLayer
-        rootLayer.isGeometryFlipped = true
         panel.contentView = view
+        rootLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        view.layer?.addSublayer(rootLayer)
     }
 
     func setFrame(_ frame: CGRect) {
