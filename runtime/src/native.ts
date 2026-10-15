@@ -25,7 +25,7 @@ export interface ExecResult {
 /// Installed by the Swift host (`JSRuntime/Bridge.swift`). Ids are plain integers owned by the host.
 export interface Native {
   log(level: "log" | "warn" | "error", message: string): void;
-  createNode(kind: "box" | "text" | "image"): number;
+  createNode(kind: "box" | "text" | "image" | "input"): number;
   setStyle(id: number, key: string, value: unknown): void;
   setProp(id: number, key: string, value: unknown): void;
   insert(parent: number, child: number, index: number): void;
@@ -39,6 +39,10 @@ export interface Native {
   clearTimer(id: number): void;
   exec(command: string, args: string[], done: (result: ExecResult) => void): void;
   formatDate(pattern: string, epochMs: number): string;
+  /// Starts or stops native delivery of `kind` events for a node or surface id.
+  listen(id: number, kind: string, enabled: boolean): void;
+  setVisibility(action: "show" | "hide" | "toggle", name: string): void;
+  focus(id: number): void;
   /// Latest payload the host received for an external event, kept across reloads.
   lastEvent(name: string): Record<string, string> | null;
 }
@@ -48,6 +52,8 @@ export interface HostHooks {
   onScreens?: (screens: ScreenInfo[]) => void;
   onEvent?: (name: string, payload: Record<string, string>) => void;
   dispose?: () => void;
+  /// Returns true when a handler consumed the event (keys then don't reach the system / text field).
+  dispatch?: (id: number, kind: string, payload: unknown) => boolean;
 }
 
 declare global {

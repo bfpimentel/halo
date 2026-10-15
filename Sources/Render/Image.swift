@@ -52,6 +52,8 @@ public final class Image: Node {
             return nil
         case .file(let path):
             return NSImage(contentsOfFile: (path as NSString).expandingTildeInPath)
+        case .appIcon(let app) where app.hasPrefix("/"):
+            return NSWorkspace.shared.icon(forFile: app)
         case .appIcon(let bundleID):
             return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
                 .map { NSWorkspace.shared.icon(forFile: $0.path) }

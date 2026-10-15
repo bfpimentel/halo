@@ -55,6 +55,23 @@ import Testing
         #expect(right.layer.frame == CGRect(x: 250, y: 11, width: 40, height: 10))
     }
 
+    @Test func hitTestingReturnsTheDeepestNodeFirstAndUsesRootRelativeFrames() {
+        let icon = Box(style: Style(width: .points(10), height: .points(10)))
+        let button = Box(style: Style(padding: Spacing(5)), children: [icon])
+        let overlapping = Box(style: Style(width: .points(30), height: .points(30)))
+        let row = Box(style: Style(flexDirection: .row, padding: Spacing(left: 100)), children: [button, overlapping])
+        let root = mount(row, size: CGSize(width: 300, height: 40))
+
+        #expect(icon.frameInRoot == CGRect(x: 105, y: 5, width: 10, height: 10))
+        #expect(root.hitPath(at: CGPoint(x: 107, y: 7)).map(ObjectIdentifier.init) == [icon, button, row].map(ObjectIdentifier.init))
+        #expect(root.hitPath(at: CGPoint(x: 102, y: 2)).map(ObjectIdentifier.init) == [button, row].map(ObjectIdentifier.init))
+        #expect(root.hitPath(at: CGPoint(x: 50, y: 10)).map(ObjectIdentifier.init) == [ObjectIdentifier(row)])
+        #expect(root.hitPath(at: CGPoint(x: 500, y: 10)).isEmpty)
+
+        overlapping.style.opacity = 0
+        #expect(root.hitPath(at: CGPoint(x: 125, y: 10)).map(ObjectIdentifier.init) == [ObjectIdentifier(row)])
+    }
+
     @Test func removingAChildDetachesItsLayer() {
         let child = Box()
         let parent = Box(children: [child])

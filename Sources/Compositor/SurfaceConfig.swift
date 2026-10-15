@@ -48,8 +48,9 @@ public enum SurfaceLayer: Sendable, Hashable {
     case desktop, belowMenu, aboveMenu, overlay
 }
 
+/// `hover`: hover and scroll only. `interactive`: also clicks. `keyboard`: also keyboard focus (without activating halo).
 public enum InputPolicy: Sendable, Hashable {
-    case passthrough, hover, interactive
+    case passthrough, hover, interactive, keyboard
 }
 
 public struct Avoid: OptionSet, Sendable, Hashable {

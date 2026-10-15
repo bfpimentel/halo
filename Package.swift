@@ -25,5 +25,6 @@ let package = Package(
             exclude: ["Fixtures"]
         ),
         .testTarget(name: "IPCTests", dependencies: ["IPC"]),
+        .testTarget(name: "HaloHostTests", dependencies: ["HaloHost", "IPC"]),
     ]
 )

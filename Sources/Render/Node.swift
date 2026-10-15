@@ -67,6 +67,35 @@ public class Node {
         parent.invalidate()
     }
 
+    /// This node's frame relative to the top of its tree (surface-local coordinates once mounted).
+    public var frameInRoot: CGRect {
+        var frame = layer.frame
+        var ancestor = parent
+        while let current = ancestor {
+            frame.origin.x += current.layer.frame.minX
+            frame.origin.y += current.layer.frame.minY
+            ancestor = current.parent
+        }
+        return frame
+    }
+
+    /// Nodes under `point` (in this node's own coordinates), deepest first. Later siblings are on top.
+    public func hitPath(at point: CGPoint) -> [Node] {
+        guard layer.opacity > 0, CGRect(origin: .zero, size: layer.frame.size).contains(point) else { return [] }
+        for child in children.reversed() {
+            let local = CGPoint(x: point.x - child.layer.frame.minX, y: point.y - child.layer.frame.minY)
+            let path = child.hitPath(at: local)
+            if !path.isEmpty { return path + [self] }
+        }
+        return [self]
+    }
+
+    public var rootOwner: RenderRoot? {
+        var top = self
+        while let parent = top.parent { top = parent }
+        return top.owner
+    }
+
     func invalidate() {
         var top = self
         while let parent = top.parent { top = parent }

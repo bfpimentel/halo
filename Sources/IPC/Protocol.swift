@@ -1,8 +1,18 @@
 import Foundation
 
 /// One JSON object per line in each direction: the client sends a `Request`, the host answers with a `Response`.
+public enum VisibilityAction: String, Codable, Sendable {
+    case show, hide, toggle
+}
+
+public enum VisibilityTarget: Codable, Equatable, Sendable {
+    case all
+    case names([String])
+}
+
 public enum Request: Codable, Equatable, Sendable {
     case trigger(name: String, payload: [String: String])
+    case visibility(VisibilityAction, VisibilityTarget)
     case reload
     case quit
 }
@@ -36,6 +46,7 @@ public enum IPC {
 
       start [--config <dir>]           run the host in the foreground (default config: $XDG_CONFIG_HOME/halo)
       trigger <name> [key=value ...]   emit an external signal event
+      show|hide|toggle <name ...>      show, hide or toggle surfaces by name (`--all` for every surface)
       reload                           rebuild and remount the config
       quit                             stop the host
       log                              follow the host log
@@ -73,6 +84,15 @@ public enum IPC {
                 payload[String(pair[..<separator])] = String(pair[pair.index(after: separator)...])
             }
             return .send(.trigger(name: name, payload: payload))
+        case "show", "hide", "toggle":
+            guard let action = VisibilityAction(rawValue: command), !rest.isEmpty else {
+                throw UsageError(description: "usage: halo \(command) <name ...> | --all")
+            }
+            if rest.contains("--all") {
+                guard rest == ["--all"] else { throw UsageError(description: "--all can't be combined with names") }
+                return .send(.visibility(action, .all))
+            }
+            return .send(.visibility(action, .names(rest)))
         case "reload" where rest.isEmpty:
             return .send(.reload)
         case "quit" where rest.isEmpty:

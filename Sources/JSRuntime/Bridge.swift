@@ -61,6 +61,15 @@ enum Bridge {
             guard let context = JSContext.current() else { return nil }
             return payload.map { JSValue(object: $0, in: context) } ?? JSValue(nullIn: context)
         }
+        let listen: @convention(block) (Int, String, Bool) -> Void = { id, kind, enabled in
+            MainActor.assumeIsolated { runtime?.listen(id, kind, enabled) }
+        }
+        let setVisibility: @convention(block) (String, String) -> Void = { action, name in
+            MainActor.assumeIsolated { runtime?.setVisibility(action, name) }
+        }
+        let focus: @convention(block) (Int) -> Void = { id in
+            MainActor.assumeIsolated { runtime?.focusNode(id) }
+        }
         let formatDate: @convention(block) (String, Double) -> String = { pattern, ms in
             MainActor.assumeIsolated { runtime?.formatDate(pattern, ms) ?? "" }
         }
@@ -80,6 +89,9 @@ enum Bridge {
         define("clearTimer", clearTimer)
         define("exec", exec)
         define("lastEvent", lastEvent)
+        define("listen", listen)
+        define("setVisibility", setVisibility)
+        define("focus", focus)
         define("formatDate", formatDate)
         context.setObject(native, forKeyedSubscript: "__native" as NSString)
     }

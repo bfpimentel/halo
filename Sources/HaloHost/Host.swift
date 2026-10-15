@@ -14,6 +14,7 @@ final class Host {
     private var server: IPCServer?
     private var runtime: Runtime?
     private var lastEvents: [String: [String: String]] = [:]
+    private var visibility = Visibility()
 
     init(configDirectory: URL, bundler: Bundler) {
         self.configDirectory = configDirectory
@@ -42,9 +43,9 @@ final class Host {
         }
 
         disposeRuntime()
-        let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), events: lastEvents)
-        next.evaluate(script, sourceURL: configDirectory.appendingPathComponent("main.tsx"))
+        let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), events: lastEvents, host: self)
         runtime = next
+        next.evaluate(script, sourceURL: configDirectory.appendingPathComponent("main.tsx"))
         Log.info("loaded \(configDirectory.path) in \(Int(Date().timeIntervalSince(started) * 1000)) ms (\(next.counts))")
         return true
     }
@@ -63,12 +64,25 @@ final class Host {
         if leaked != .zero { Log.warn("previous config left \(leaked) alive after its cleanups; released them") }
     }
 
+    private func changeVisibility(_ action: VisibilityAction, _ target: VisibilityTarget) throws {
+        guard let runtime else { throw Visibility.UnknownNames(names: [], available: []) }
+        try visibility.apply(action, to: target, mounted: runtime.surfaceNames)
+        runtime.refreshVisibility()
+    }
+
     private func handle(_ request: Request) -> Response {
         switch request {
         case .trigger(let name, let payload):
             lastEvents[name] = payload
             runtime?.deliver(event: name, payload: payload)
             return .success
+        case .visibility(let action, let target):
+            do {
+                try changeVisibility(action, target)
+                return .success
+            } catch {
+                return Response(ok: false, error: "\(error)")
+            }
         case .reload:
             return reload() ? .success : Response(ok: false, error: "build failed; see `halo log`")
         case .quit:
@@ -77,6 +91,25 @@ final class Host {
                 exit(0)
             }
             return .success
+        }
+    }
+}
+
+extension Host: RuntimeHost {
+    func isHidden(name: String?) -> Bool {
+        visibility.isHidden(name: name)
+    }
+
+    func register(name: String, defaultHidden: Bool) {
+        visibility.register(name: name, defaultHidden: defaultHidden)
+    }
+
+    func requestVisibility(_ action: String, name: String) {
+        guard let action = VisibilityAction(rawValue: action) else { return Log.warn("unknown visibility action \(action)") }
+        do {
+            try changeVisibility(action, .names([name]))
+        } catch {
+            Log.warn("\(action.rawValue)(\"\(name)\"): \(error)")
         }
     }
 }

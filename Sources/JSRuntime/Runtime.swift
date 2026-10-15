@@ -1,7 +1,17 @@
+import AppKit
 import Compositor
-import Foundation
 import JavaScriptCore
 import Render
+
+/// What the runtime needs from whoever hosts it: the CLI-controlled visibility of named surfaces.
+@MainActor
+public protocol RuntimeHost: AnyObject {
+    func isHidden(name: String?) -> Bool
+    /// Called when a surface first appears, before it's shown.
+    func register(name: String, defaultHidden: Bool)
+    /// `show` / `hide` / `toggle` requested by config code.
+    func requestVisibility(_ action: String, name: String)
+}
 
 /// One loaded config: a JSContext plus every native object it created, all released by `dispose()`.
 @MainActor
@@ -16,32 +26,52 @@ public final class Runtime {
         public var description: String { "\(nodes) nodes, \(surfaces) surfaces, \(timers) timers" }
     }
 
-    private struct SurfaceEntry {
+    final class SurfaceEntry {
+        let id: Int
         let surface: Surface
         let root: RenderRoot
         var config: SurfaceConfig
+        var options: Conversions.SurfaceOptions
+        var shown = false
+        var pressed: Int?
+        var hovered: Set<Int> = []
+
+        init(id: Int, surface: Surface, root: RenderRoot, config: SurfaceConfig, options: Conversions.SurfaceOptions) {
+            self.id = id
+            self.surface = surface
+            self.root = root
+            self.config = config
+            self.options = options
+        }
     }
 
     let context: JSContext
-    private let backend: CompositorBackend
-    private var screens: [ScreenInfo]
-    private var nodes: [Int: Node] = [:]
-    private var surfaces: [Int: SurfaceEntry] = [:]
+    let backend: CompositorBackend
+    weak var host: RuntimeHost?
+    var screens: [ScreenInfo]
+    var nodes: [Int: Node] = [:]
+    var nodeIDs: [ObjectIdentifier: Int] = [:]
+    var surfaces: [Int: SurfaceEntry] = [:]
+    var listeners: [Int: Set<String>] = [:]
+    var mouseMonitors: [Any] = []
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
     private var processes: [Int: (process: Process, callback: JSValue)] = [:]
     private var formatters: [String: DateFormatter] = [:]
     private var lastEvents: [String: [String: String]]
     private var nextID = 1
-    private var disposed = false
+    var disposed = false
 
     public var counts: Counts {
         Counts(nodes: nodes.count, surfaces: surfaces.count, timers: timers.count)
     }
 
     /// `events` holds the latest payload per external event name, so a fresh load starts from known state.
-    public init(backend: CompositorBackend, screens: [ScreenInfo], events: [String: [String: String]] = [:]) {
+    public init(
+        backend: CompositorBackend, screens: [ScreenInfo], events: [String: [String: String]] = [:], host: RuntimeHost? = nil
+    ) {
         self.backend = backend
         self.screens = screens
+        self.host = host
         lastEvents = events
         context = JSContext()
         context.name = "halo"
@@ -70,6 +100,19 @@ public final class Runtime {
         }
     }
 
+    /// Surface names currently mounted; `nil` stands for unnamed surfaces.
+    public var surfaceNames: Set<String?> {
+        Set(surfaces.values.map(\.options.name))
+    }
+
+    /// Re-applies host-controlled visibility (after `halo show/hide/toggle`).
+    public func refreshVisibility() {
+        guard !disposed else { return }
+        backend.transaction {
+            for entry in surfaces.values { place(entry) }
+        }
+    }
+
     public func deliver(event name: String, payload: [String: String]) {
         guard !disposed else { return }
         lastEvents[name] = payload
@@ -95,6 +138,7 @@ public final class Runtime {
         timers.removeAll()
         for (process, _) in processes.values where process.isRunning { process.terminate() }
         processes.removeAll()
+        stopMouseMonitors()
         backend.transaction {
             for entry in surfaces.values {
                 entry.root.detach()
@@ -103,25 +147,65 @@ public final class Runtime {
         }
         surfaces.removeAll()
         nodes.removeAll()
+        nodeIDs.removeAll()
+        listeners.removeAll()
         context.exceptionHandler = nil
         return leftover
     }
 
-    private func makeID() -> Int {
+    func makeID() -> Int {
         defer { nextID += 1 }
         return nextID
     }
 
-    private func place(_ entry: SurfaceEntry) {
-        guard let screen = screens.first(where: { $0.id == entry.config.screen }) else {
-            var hidden = entry.config
-            hidden.visible = false
-            if let fallback = screens.first { entry.surface.update(hidden, screen: fallback) }
+    /// Applies config, host visibility and popup attachment; focuses keyboard surfaces as they appear.
+    func place(_ entry: SurfaceEntry) {
+        var config = entry.config
+        config.visible = config.visible && !(host?.isHidden(name: entry.options.name) ?? false)
+        var frame: CGRect?
+        var screen = screens.first { $0.id == config.screen }
+        if let attachment = entry.options.attach {
+            if let (anchorScreen, anchorFrame) = anchor(of: attachment) {
+                screen = anchorScreen
+                frame = Placement.frame(
+                    size: CGSize(width: fixed(config.size.width), height: fixed(config.size.height)),
+                    attachedTo: anchorFrame, side: attachment.side, align: attachment.align,
+                    offset: attachment.offset, within: anchorScreen.frame
+                )
+            } else {
+                config.visible = false
+            }
+        }
+        guard let screen else {
+            config.visible = false
+            if let fallback = screens.first { entry.surface.update(config, screen: fallback) }
+            entry.shown = false
             return
         }
-        entry.surface.update(entry.config, screen: screen)
+        entry.surface.update(config, screen: screen, frame: frame)
         entry.root.size = entry.surface.frame.size
         entry.root.contentsScale = screen.scale
+        let appeared = config.visible && !entry.shown
+        entry.shown = config.visible
+        if appeared, config.input == .keyboard { entry.surface.focus() }
+    }
+
+    private func fixed(_ dimension: Compositor.Dimension?) -> CGFloat {
+        if case .fixed(let value) = dimension { return value }
+        return 0
+    }
+
+    /// The anchor node's screen and global frame, laying out its surface first so the frame is current.
+    private func anchor(of attachment: Conversions.Attachment) -> (ScreenInfo, CGRect)? {
+        guard let node = nodes[attachment.node],
+              let host = surfaces.values.first(where: { $0.root === node.rootOwner }),
+              host.shown,
+              let screen = screens.first(where: { $0.id == host.config.screen })
+        else { return nil }
+        host.root.layoutNow()
+        let local = node.frameInRoot
+        let origin = host.surface.frame.origin
+        return (screen, local.offsetBy(dx: origin.x, dy: origin.y))
     }
 }
 
@@ -134,13 +218,15 @@ extension Runtime {
 
     func createNode(_ kind: String) -> Int {
         guard !disposed else { return 0 }
+        let id = makeID()
         let node: Node = switch kind {
         case "text": Text("")
         case "image": Image()
+        case "input": makeInput(id)
         default: Box()
         }
-        let id = makeID()
         nodes[id] = node
+        nodeIDs[ObjectIdentifier(node)] = id
         return id
     }
 
@@ -164,33 +250,44 @@ extension Runtime {
     }
 
     func destroyNode(_ id: Int) {
-        nodes.removeValue(forKey: id)?.removeFromParent()
+        guard let node = nodes.removeValue(forKey: id) else { return }
+        nodeIDs[ObjectIdentifier(node)] = nil
+        listeners[id] = nil
+        node.removeFromParent()
     }
 
     func createSurface(_ rootID: Int, _ configValue: JSValue) -> Int {
         guard !disposed, let node = nodes[rootID], let fallback = screens.first else { return 0 }
         let config = Conversions.surfaceConfig(configValue)
-        let screen = screens.first { $0.id == config.screen } ?? fallback
-        var initial = config
-        if screen.id != config.screen { initial.visible = false }
-        let surface = Surface(config: initial, screen: screen, backend: backend)
-        let root = RenderRoot(node: node, hostLayer: surface.rootLayer, size: surface.frame.size, contentsScale: screen.scale)
+        let options = Conversions.surfaceOptions(configValue)
+        if let name = options.name { host?.register(name: name, defaultHidden: options.defaultHidden) }
+        var hidden = config
+        hidden.visible = false
+        let surface = Surface(config: hidden, screen: fallback, backend: backend)
+        let root = RenderRoot(node: node, hostLayer: surface.rootLayer, size: surface.frame.size, contentsScale: fallback.scale)
+        root.attachView = { [weak surface] view in surface?.attach(view) }
         let id = makeID()
-        surfaces[id] = SurfaceEntry(surface: surface, root: root, config: config)
+        let entry = SurfaceEntry(id: id, surface: surface, root: root, config: hidden, options: options)
+        surfaces[id] = entry
+        wireEvents(of: entry)
+        entry.config = config
+        place(entry)
         return id
     }
 
     func updateSurface(_ id: Int, _ configValue: JSValue) {
-        guard var entry = surfaces[id] else { return }
+        guard let entry = surfaces[id] else { return }
         entry.config = Conversions.surfaceConfig(configValue)
-        surfaces[id] = entry
+        entry.options = Conversions.surfaceOptions(configValue)
         place(entry)
     }
 
     func destroySurface(_ id: Int) {
         guard let entry = surfaces.removeValue(forKey: id) else { return }
+        listeners[id] = nil
         entry.root.detach()
         entry.surface.destroy()
+        updateMouseMonitors()
     }
 
     func screenList() -> [[String: Any]] {

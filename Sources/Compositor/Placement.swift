@@ -32,6 +32,57 @@ public enum Placement {
         return avoiding(notch: notch, rect: rect, anchor: config.anchor)
     }
 
+    public enum Side: Sendable, Hashable {
+        case above, below, left, right
+    }
+
+    public enum Alignment: Sendable, Hashable {
+        case start, center, end
+    }
+
+    /// A popup of `size` next to `anchor` (both top-left global). Flips to the opposite side when the preferred one
+    /// doesn't fit inside `bounds` and the other does, then slides along the edge to stay inside `bounds`.
+    public static func frame(
+        size: CGSize, attachedTo anchor: CGRect, side: Side, align: Alignment, offset: CGFloat, within bounds: CGRect
+    ) -> CGRect {
+        let vertical = side == .above || side == .below
+        func origin(on side: Side) -> CGFloat {
+            switch side {
+            case .below: anchor.maxY + offset
+            case .above: anchor.minY - offset - size.height
+            case .right: anchor.maxX + offset
+            case .left: anchor.minX - offset - size.width
+            }
+        }
+        func fits(_ value: CGFloat) -> Bool {
+            vertical
+                ? value >= bounds.minY && value + size.height <= bounds.maxY
+                : value >= bounds.minX && value + size.width <= bounds.maxX
+        }
+        let opposite: Side = switch side {
+        case .above: .below
+        case .below: .above
+        case .left: .right
+        case .right: .left
+        }
+        var main = origin(on: side)
+        if !fits(main), fits(origin(on: opposite)) { main = origin(on: opposite) }
+
+        let length = vertical ? size.width : size.height
+        let (start, extent) = vertical ? (anchor.minX, anchor.width) : (anchor.minY, anchor.height)
+        var cross: CGFloat = switch align {
+        case .start: start
+        case .center: start + (extent - length) / 2
+        case .end: start + extent - length
+        }
+        let (low, high) = vertical ? (bounds.minX, bounds.maxX) : (bounds.minY, bounds.maxY)
+        cross = max(low, min(cross, high - length))
+
+        return vertical
+            ? CGRect(x: cross, y: main, width: size.width, height: size.height)
+            : CGRect(x: main, y: cross, width: size.width, height: size.height)
+    }
+
     private static func axis(
         start: CGFloat, length: CGFloat,
         marginStart: CGFloat, marginEnd: CGFloat,

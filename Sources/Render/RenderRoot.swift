@@ -1,4 +1,4 @@
-import QuartzCore
+import AppKit
 import yoga
 
 /// Attaches a node tree to a host layer and lays it out at most once per run-loop pass.
@@ -9,6 +9,9 @@ public final class RenderRoot {
     public var size: CGSize {
         didSet { if size != oldValue { setNeedsLayout() } }
     }
+
+    /// Where native views (text fields) get mounted; set by whoever owns the surface.
+    public var attachView: ((NSView) -> Void)?
 
     public var contentsScale: CGFloat {
         get { node.contentsScale }
@@ -31,6 +34,10 @@ public final class RenderRoot {
 
     func setNeedsLayout() {
         LayoutScheduler.shared.schedule(self)
+    }
+
+    public func hitPath(at point: CGPoint) -> [Node] {
+        node.hitPath(at: point)
     }
 
     public func layoutNow() {

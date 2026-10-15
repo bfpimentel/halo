@@ -8,6 +8,41 @@ import Render
 enum Conversions {
     private static let defaults = Style()
 
+    struct Attachment {
+        var node: Int
+        var side: Placement.Side
+        var align: Placement.Alignment
+        var offset: CGFloat
+    }
+
+    /// Surface props that matter to the runtime rather than to placement.
+    struct SurfaceOptions {
+        var name: String?
+        var defaultHidden = false
+        var attach: Attachment?
+    }
+
+    static func surfaceOptions(_ value: JSValue) -> SurfaceOptions {
+        var options = SurfaceOptions()
+        if let name = value.forProperty("name"), name.isString { options.name = name.toString() }
+        options.defaultHidden = value.forProperty("defaultHidden")?.toBool() ?? false
+        if let attach = value.forProperty("attach"), attach.isObject, let node = attach.forProperty("node"), node.isNumber {
+            let side: Placement.Side = switch attach.forProperty("side")?.toString() {
+            case "above": .above
+            case "left": .left
+            case "right": .right
+            default: .below
+            }
+            let align: Placement.Alignment = switch attach.forProperty("align")?.toString() {
+            case "center": .center
+            case "end": .end
+            default: .start
+            }
+            options.attach = Attachment(node: Int(node.toInt32()), side: side, align: align, offset: number(attach.forProperty("offset")) ?? 0)
+        }
+        return options
+    }
+
     static func applyStyle(_ key: String, _ value: JSValue, to node: Node) {
         let present = !(value.isNull || value.isUndefined)
         switch key {
@@ -40,20 +75,25 @@ enum Conversions {
         case "opacity":
             node.style.opacity = Float(number(value) ?? CGFloat(defaults.opacity))
         case "color", "fontSize", "fontWeight", "fontFamily":
-            guard let text = node as? Text else { return Log.warn("style.\(key) only applies to <Text>") }
-            applyTextStyle(key, value, to: text)
+            if let text = node as? Text {
+                applyTextStyle(key, value, font: &text.font, color: &text.color)
+            } else if let input = node as? Input {
+                applyTextStyle(key, value, font: &input.font, color: &input.color)
+            } else {
+                Log.warn("style.\(key) only applies to <Text> and <Input>")
+            }
         default:
             Log.warn("unknown style key \"\(key)\"")
         }
     }
 
-    private static func applyTextStyle(_ key: String, _ value: JSValue, to text: Text) {
+    private static func applyTextStyle(_ key: String, _ value: JSValue, font: inout Font, color textColor: inout CGColor) {
         let base = Font()
         switch key {
-        case "color": text.color = color(value) ?? .white
-        case "fontSize": text.font.size = number(value) ?? base.size
-        case "fontWeight": text.font.weight = weight(value) ?? base.weight
-        default: text.font.family = value.isString ? value.toString() : nil
+        case "color": textColor = color(value) ?? .white
+        case "fontSize": font.size = number(value) ?? base.size
+        case "fontWeight": font.weight = weight(value) ?? base.weight
+        default: font.family = value.isString ? value.toString() : nil
         }
     }
 
@@ -71,6 +111,12 @@ enum Conversions {
             image.size = number(value) ?? 16
         case (let image as Image, "color"):
             image.color = color(value)
+        case (let input as Input, "value"):
+            input.value = value.isString ? value.toString() : ""
+        case (let input as Input, "placeholder"):
+            input.placeholder = value.isString ? value.toString() : ""
+        case (let input as Input, "autofocus"):
+            input.autofocus = value.toBool()
         default:
             Log.warn("unknown prop \"\(key)\" for \(type(of: node))")
         }
@@ -105,6 +151,7 @@ enum Conversions {
         switch value.forProperty("input")?.toString() {
         case "hover": config.input = .hover
         case "interactive": config.input = .interactive
+        case "keyboard": config.input = .keyboard
         default: config.input = .passthrough
         }
         if let avoid = strings(value.forProperty("avoid")) {

@@ -1,3 +1,4 @@
+import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "./events";
 import { reportError } from "./host";
 import { native, type ScreenInfo } from "./native";
 import { effect, getOwner, onCleanup, root, runWithOwner, signal, untrack, type Accessor } from "./reactive";
@@ -44,7 +45,22 @@ function read<T>(value: Reactive<T>): T {
   return typeof value === "function" ? (value as Accessor<T>)() : value;
 }
 
-function createNode(kind: "box" | "text" | "image"): NativeNode {
+/// Event props shared by Box, Text and Image. Events bubble to the closest ancestor listening for them.
+export interface Interactive {
+  onClick?: (event: ClickEvent) => void;
+  onScroll?: (event: ScrollEvent) => void;
+  onHover?: (hovered: boolean) => void;
+  ref?: (node: NativeNode) => void;
+}
+
+function wire(node: NativeNode, props: Interactive): void {
+  listen(node.id, "click", props.onClick);
+  listen(node.id, "scroll", props.onScroll);
+  listen(node.id, "hover", props.onHover);
+  props.ref?.(node);
+}
+
+function createNode(kind: "box" | "text" | "image" | "input"): NativeNode {
   const id = native.createNode(kind);
   onCleanup(() => native.destroyNode(id));
   return new NativeNode(id);
@@ -106,16 +122,18 @@ function appendChildren(parent: NativeNode, children: Element): void {
   }
 }
 
-export function Box(props: { style?: StyleProp<BoxStyle>; children?: Element }): NativeNode {
+export function Box(props: Interactive & { style?: StyleProp<BoxStyle>; children?: Element }): NativeNode {
   const node = createNode("box");
   applyStyle(node, props.style);
   appendChildren(node, props.children);
+  wire(node, props);
   return node;
 }
 
 /// Function children are re-read reactively: `<Text>{() => `WS ${ws()}`}</Text>`.
-export function Text(props: { style?: StyleProp<TextStyle>; children?: Element }): NativeNode {
+export function Text(props: Interactive & { style?: StyleProp<TextStyle>; children?: Element }): NativeNode {
   const node = createNode("text");
+  wire(node, props);
   applyStyle(node, props.style);
   const parts = flatten(props.children);
   const render = () => parts.map((part) => String(typeof part === "function" ? part() : part)).join("");
@@ -124,8 +142,9 @@ export function Text(props: { style?: StyleProp<TextStyle>; children?: Element }
   return node;
 }
 
-export function Image(props: {
+export function Image(props: Interactive & {
   symbol?: Reactive<string>;
+  /// A bundle id ("com.apple.Safari") or an absolute `.app` path.
   app?: Reactive<string>;
   file?: Reactive<string>;
   size?: Reactive<number>;
@@ -139,18 +158,69 @@ export function Image(props: {
     else if (value !== undefined) native.setProp(node.id, key, value);
   }
   applyStyle(node, props.style);
+  wire(node, props);
   return node;
+}
+
+/// A native single-line text field (IME, selection and clipboard included). Needs a `keyboard` surface.
+/// `onKeyDown` gets Enter, Escape, ArrowUp, ArrowDown and Tab; return true to stop the default behavior.
+export function Input(props: {
+  value?: Reactive<string>;
+  placeholder?: Reactive<string>;
+  autofocus?: boolean;
+  style?: StyleProp<TextStyle>;
+  onInput?: (value: string) => void;
+  onSubmit?: (value: string) => void;
+  onKeyDown?: (event: { key: string }) => boolean | void;
+  ref?: (node: NativeNode) => void;
+}): NativeNode {
+  const node = createNode("input");
+  for (const key of ["value", "placeholder"] as const) {
+    const value = props[key];
+    if (typeof value === "function") effect(() => native.setProp(node.id, key, value()));
+    else if (value !== undefined) native.setProp(node.id, key, value);
+  }
+  if (props.autofocus) native.setProp(node.id, "autofocus", true);
+  applyStyle(node, props.style);
+  listen(node.id, "input", props.onInput);
+  listen(node.id, "submit", props.onSubmit);
+  listen(node.id, "key", props.onKeyDown);
+  props.ref?.(node);
+  return node;
+}
+
+/// Moves keyboard focus into an `<Input>` (its surface must have focus).
+export function focus(node: NativeNode): void {
+  native.focus(node.id);
 }
 
 export type Edge = "top" | "bottom" | "left" | "right";
 
+export interface Attachment {
+  to: NativeNode | undefined;
+  side?: "below" | "above" | "left" | "right";
+  align?: "start" | "center" | "end";
+  offset?: number;
+}
+
 export interface SurfaceProps {
+  /// Target for `halo show|hide|toggle <name>`; shared by this widget's instance on every display.
+  name?: string;
+  /// Start hidden the first time this name appears (e.g. a launcher opened by a hotkey).
+  defaultHidden?: boolean;
+  /// Place next to a node of another surface instead of anchoring to the screen. Needs a fixed `size`.
+  attach?: Reactive<Attachment>;
+  onKeyDown?: (event: KeyEvent) => boolean | void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  /// A click anywhere outside this surface, in any app.
+  onClickOutside?: () => void;
   screen: Reactive<number | ScreenInfo>;
   anchor?: Reactive<Edge[]>;
   margins?: Reactive<Spacing>;
   size?: Reactive<{ width?: number | "fill"; height?: number | "fill" }>;
   layer?: Reactive<"desktop" | "belowMenu" | "aboveMenu" | "overlay">;
-  input?: Reactive<"passthrough" | "hover" | "interactive">;
+  input?: Reactive<"passthrough" | "hover" | "interactive" | "keyboard">;
   avoid?: Reactive<("notch" | "menuBar")[]>;
   visible?: Reactive<boolean>;
   children?: Element;
@@ -173,12 +243,25 @@ export function Surface(props: SurfaceProps): null {
       input: read(props.input),
       avoid: read(props.avoid),
       visible: read(props.visible),
+      name: props.name,
+      defaultHidden: props.defaultHidden,
+      attach: attachment(props.attach),
     };
     if (id === 0) id = native.createSurface(content.id, config);
     else native.updateSurface(id, config);
   });
+  listen(id, "key", props.onKeyDown);
+  listen(id, "focus", props.onFocus);
+  listen(id, "blur", props.onBlur);
+  listen(id, "clickOutside", props.onClickOutside);
   onCleanup(() => native.destroySurface(id));
   return null;
+}
+
+function attachment(value: Reactive<Attachment> | undefined) {
+  const attach = value === undefined ? undefined : read(value);
+  if (!attach?.to) return undefined;
+  return { node: attach.to.id, side: attach.side, align: attach.align, offset: attach.offset };
 }
 
 const screenList = signal<ScreenInfo[]>(native.screens(), { equals: false });

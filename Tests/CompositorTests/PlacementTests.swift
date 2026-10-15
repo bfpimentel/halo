@@ -108,6 +108,50 @@ private func place(_ config: SurfaceConfig, on screen: ScreenInfo = laptop) -> C
     }
 }
 
+@Suite struct AttachedPlacementTests {
+    private let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+    private let size = CGSize(width: 200, height: 100)
+
+    @Test func belowAlignedToEachEdge() {
+        let anchor = CGRect(x: 400, y: 4, width: 80, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: anchor, side: .below, align: .start, offset: 6, within: screen)
+            == CGRect(x: 400, y: 42, width: 200, height: 100))
+        #expect(Placement.frame(size: size, attachedTo: anchor, side: .below, align: .center, offset: 6, within: screen)
+            == CGRect(x: 340, y: 42, width: 200, height: 100))
+        #expect(Placement.frame(size: size, attachedTo: anchor, side: .below, align: .end, offset: 6, within: screen)
+            == CGRect(x: 280, y: 42, width: 200, height: 100))
+    }
+
+    @Test func flipsWhenThePreferredSideDoesNotFit() {
+        let nearBottom = CGRect(x: 400, y: 940, width: 80, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: nearBottom, side: .below, align: .start, offset: 6, within: screen).minY == 834)
+
+        let nearTop = CGRect(x: 400, y: 4, width: 80, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: nearTop, side: .above, align: .start, offset: 6, within: screen).minY == 42)
+    }
+
+    @Test func slidesAlongTheEdgeToStayOnScreen() {
+        let atRightEdge = CGRect(x: 1480, y: 4, width: 30, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: atRightEdge, side: .below, align: .start, offset: 0, within: screen).maxX == 1512)
+
+        let atLeftEdge = CGRect(x: 2, y: 4, width: 30, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: atLeftEdge, side: .below, align: .center, offset: 0, within: screen).minX == 0)
+    }
+
+    @Test func sideAttachmentAlignsVertically() {
+        let launcherIcon = CGRect(x: 8, y: 500, width: 40, height: 40)
+        #expect(Placement.frame(size: size, attachedTo: launcherIcon, side: .right, align: .center, offset: 8, within: screen)
+            == CGRect(x: 56, y: 470, width: 200, height: 100))
+    }
+
+    @Test func worksOnASecondaryScreen() {
+        let external = CGRect(x: 1512, y: -200, width: 1920, height: 1080)
+        let anchor = CGRect(x: 3400, y: -196, width: 30, height: 32)
+        #expect(Placement.frame(size: size, attachedTo: anchor, side: .below, align: .start, offset: 4, within: external)
+            == CGRect(x: 3232, y: -160, width: 200, height: 100))
+    }
+}
+
 @Suite struct GeometryTests {
     @Test func flipsBetweenAppKitAndTopLeft() {
         let appKitBottomBar = CGRect(x: 0, y: 0, width: 1512, height: 32)

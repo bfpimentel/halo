@@ -25,6 +25,14 @@ import Testing
         #expect(throws: UsageError.self) { try IPC.parse(arguments: ["start", "examples/demo"]) }
     }
 
+    @Test func visibilityCommandsTakeNamesOrAll() throws {
+        #expect(try IPC.parse(arguments: ["toggle", "launcher"]) == .send(.visibility(.toggle, .names(["launcher"]))))
+        #expect(try IPC.parse(arguments: ["hide", "bar", "clock"]) == .send(.visibility(.hide, .names(["bar", "clock"]))))
+        #expect(try IPC.parse(arguments: ["show", "--all"]) == .send(.visibility(.show, .all)))
+        #expect(throws: UsageError.self) { try IPC.parse(arguments: ["hide"]) }
+        #expect(throws: UsageError.self) { try IPC.parse(arguments: ["hide", "--all", "bar"]) }
+    }
+
     @Test func simpleCommandsRejectExtraArguments() throws {
         #expect(try IPC.parse(arguments: ["reload"]) == .send(.reload))
         #expect(try IPC.parse(arguments: []) == .help)

@@ -22,6 +22,7 @@ Think of it as three things in one process:
 ### Non-goals (do not build these)
 
 - **Not a window manager.** We don't tile, move, or react to other apps' windows.
+- **No global hotkeys.** The WM binds keys and runs the CLI (e.g. AeroSpace `alt-space = 'exec-and-forget halo toggle launcher'`).
 - **No exclusive zones.** macOS can't reserve screen space. Bars overlay. Users set padding in their WM.
 - **No interception of system UI:** notifications, other apps' menu-bar extras, the Dock, the system volume/brightness HUD. A halo OSD can react to volume changes, but the system HUD still appears.
 - **No widgets over fullscreen apps.** Every surface, on every layer, is hidden while a fullscreen app is showing. Deliberate and not configurable.
@@ -58,7 +59,7 @@ A Swift protocol so placement and rendering never touch window APIs directly:
 
 - create/destroy a surface
 - set frame, level, Space policy, shape/corner mask, background blur, shadow
-- set input policy (passthrough / hover / interactive, **never** activating)
+- set input policy (passthrough / hover / interactive / keyboard, **never** activating: a `keyboard` surface takes key focus Spotlight-style while the frontmost app stays active)
 - `transaction { … }` to batch changes across many surfaces
 
 **PublicBackend (default, required to be complete):** borderless `NSPanel` with `.nonactivatingPanel`, `ignoresMouseEvents` for passthrough, `isOpaque = false`, clear background, layer-backed content view. `collectionBehavior` is always `.stationary` + `.ignoresCycle`: one Space, unaffected by Mission Control, skipped by window cycling. Never `.canJoinAllSpaces` or `.fullScreenAuxiliary` (see Non-goals). Levels use `NSWindow.Level` / `CGWindowLevelForKey`. Batching goes through `CATransaction` plus `NSAnimationContext` with animations disabled.
@@ -76,9 +77,13 @@ A `Surface` is configured declaratively from TSX:
 | `margins` | per-edge insets |
 | `size` | fixed width/height, or `"fill"` along anchored axes |
 | `layer` | `desktop` · `belowMenu` · `aboveMenu` · `overlay` |
-| `input` | `passthrough` · `hover` · `interactive` |
+| `input` | `passthrough` · `hover` (hover + scroll) · `interactive` (+ clicks) · `keyboard` (+ key focus, `<Input>`) |
 | `avoid` | `notch`, `menuBar`: placement shifts around them |
 | `visible` | bool (hidden surfaces are kept, not destroyed) |
+| `name` | target for `halo show/hide/toggle`; shared by every display's instance |
+| `defaultHidden` | start hidden the first time the name appears; afterwards the user's choice sticks (host state, survives reloads) |
+| `attach` | `{ to: node, side, align, offset }`: popup placed next to a node of another surface (flips/slides to stay on screen; needs a fixed `size`) |
+| `onKeyDown` · `onFocus` · `onBlur` · `onClickOutside` | surface events (`onClickOutside` uses NSEvent mouse monitors, which need no permission, only while someone listens) |
 
 Placement is a **pure function** `(SurfaceConfig, ScreenInfo) -> CGRect`. Unit-test it heavily. Note: AppKit's global coordinates are bottom-left origin, CoreGraphics' are top-left. Convert in exactly one place.
 
@@ -105,12 +110,13 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
 - Primitives (start small):
   - `<Box>`: flexbox container with background, border, radius, padding, gap, opacity
   - `<Text>`: CoreText-backed, font family/size/weight, color, truncation
-  - `<Image>`: file path, SF Symbol name, or app icon by bundle id
+  - `<Image>`: file path, SF Symbol name, or app icon by bundle id or `.app` path
+  - `<Input>`: a real `NSTextField` mounted over the node's frame after every layout (IME, selection, clipboard). `value`, `placeholder`, `autofocus`, `onInput`, `onSubmit`, `onKeyDown` (Enter/Escape/arrows/Tab; return true to consume). Needs a `keyboard` surface.
   - `<Shape>` (later): paths for graphs and progress rings
 - Layout: **Yoga** (C API) owns the layout. After each layout pass, frames are pushed to CALayers inside one `CATransaction` with `setDisableActions(true)`.
 - Styling is a **typed props object**, not CSS: `style={{ padding: 8, gap: 6, background: "#1e1e2e", radius: 8 }}`. Keep the vocabulary to what's in the table above until a real widget needs more.
 - Animation: explicit only (`animate(signal, { duration, curve })` or a `transition` prop). Core Animation does the interpolation.
-- Hit-testing: native, against layer frames. Events (`onClick`, `onScroll`, `onHover`) dispatch to JS. Surfaces with `input: passthrough` get none.
+- Hit-testing: native, against layer frames (`Node.hitPath`). Events (`onClick`, `onScroll`, `onHover`) dispatch to JS through `__halo.dispatch(id, kind, payload)` and bubble to the closest listening ancestor. Click = mouse down and up on the same listener. Surfaces with `input: passthrough` get none. `ref={(node) => …}` hands out a node (for `attach` and `focus(node)`).
 
 ### 5. JS runtime
 
@@ -152,6 +158,7 @@ Services are lazy: the native observer starts when a signal gets its first subsc
     'halo trigger aerospace.workspace focused=$AEROSPACE_FOCUSED_WORKSPACE prev=$AEROSPACE_PREV_WORKSPACE']
   on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']   # optional: keeps "empty" fresh
   ```
+- `halo show|hide|toggle <name ...>` or `--all` (which includes unnamed surfaces). Unknown names are rejected with the list of mounted ones. Config code has the same `show/hide/toggle(name)` from `halo`. Rules live in `HaloHost/Visibility.swift`; the effective visibility is the widget's own `visible` AND not hidden by name.
 - Other commands: `halo reload`, `halo quit` (disposes the config, removes the socket), `halo log` (`tail -F` of `$TMPDIR/halo.log`, truncated at each start). Not yet: `halo inspect` (M7).
 - Socket I/O happens off the main thread and requests are handled on main. Sockets are `SO_NOSIGPIPE` and the host ignores SIGPIPE: a client that hangs up early must never kill it.
 
@@ -246,7 +253,7 @@ Tests/
 3. **JS runtime:** JSC + esbuild + signals + JSX mounting the same bar from TSX. Hot reload.
 4. **IPC and external signals:** `halo trigger`, hydration, AeroSpace example.
 5. **Services:** clock, battery, audio, network, frontApp.
-6. **Input:** click, scroll, hover. Popup surfaces anchored to a node.
+6. **Input:** click, scroll, hover, keyboard focus + `<Input>`, named show/hide/toggle, popup surfaces anchored to a node. Example: `examples/launcher`.
 7. **Polish:** animation, error surface, `halo inspect`, typed docs, example gallery.
 8. **(Optional, post-MVP) private:** `nowPlaying`; evaluate `SkyLightBackend` only if a concrete limitation is found.
 

@@ -1,3 +1,4 @@
+import AppKit
 import Compositor
 import Foundation
 import QuartzCore
@@ -23,6 +24,10 @@ private final class FakeSurface: BackendSurface {
 
     init(backend: FakeBackend) { self.backend = backend }
 
+    var onEvent: ((SurfaceEvent) -> Void)?
+    var onKey: ((KeyEvent) -> Bool)?
+    func focus() {}
+    func attach(_ view: NSView) {}
     func setFrame(_ frame: CGRect) {}
     func setLayer(_ layer: SurfaceLayer) {}
     func setInput(_ input: InputPolicy) {}
