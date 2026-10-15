@@ -46,6 +46,7 @@ public final class Input: Node {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
+        field.wantsLayer = true
         field.usesSingleLineMode = true
         field.cell?.wraps = false
         field.cell?.isScrollable = true
@@ -61,9 +62,18 @@ public final class Input: Node {
         field.window?.makeFirstResponder(field)
     }
 
-    public override func removeFromParent() {
-        super.removeFromParent()
+    static let mirroredEnter = "mirror.enter"
+    static let mirroredExit = "mirror.exit"
+
+    override func detachNativeViews() {
         field.removeFromSuperview()
+        super.detachNativeViews()
+    }
+
+    func clearMirroredExit() {
+        for keyPath in ["opacity", "transform.scale", "transform.translation.x", "transform.translation.y"] {
+            field.layer?.removeAnimation(forKey: "\(Self.mirroredExit).\(keyPath)")
+        }
     }
 
     override func applyFrames() {

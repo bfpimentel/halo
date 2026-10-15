@@ -75,6 +75,12 @@ public class Node {
         layer.removeFromSuperlayer()
         self.parent = nil
         parent.invalidate()
+        detachNativeViews()
+    }
+
+    /// Native views (text fields) live above the layer tree, so they leave with their node explicitly.
+    func detachNativeViews() {
+        for child in children { child.detachNativeViews() }
     }
 
     /// Removes the node, playing `exit` first if it has one. The node leaves the layout immediately;
@@ -90,8 +96,9 @@ public class Node {
         YGNodeRemoveChild(parent.yoga, yoga)
         self.parent = nil
         parent.invalidate()
-        play(exit: exit) { [layer] in
+        play(exit: exit) { [weak self, layer] in
             layer.removeFromSuperlayer()
+            self?.detachNativeViews()
             completion()
         }
     }
@@ -205,6 +212,7 @@ public class Node {
             animation.toValue = property.value(in: style).layerValue(for: property)
             layer.add(animation, forKey: "enter.\(property.rawValue)")
         }
+        mirror(enter.values, timing: enter.timing, entering: true)
     }
 
     /// Animates from the current presentation to `exit.values` and holds there until `completion`.
@@ -220,12 +228,62 @@ public class Node {
             animation.isRemovedOnCompletion = false
             layer.add(animation, forKey: "exit.\(property.rawValue)")
         }
+        mirror(exit.values, timing: exit.timing, entering: false)
         CATransaction.commit()
     }
 
     /// Drops held exit frames so the layer shows its style again (e.g. a surface shown after hiding).
     public func clearExit() {
         for property in AnimatedProperty.allCases { layer.removeAnimation(forKey: "exit.\(property.rawValue)") }
+        for input in inputsInSubtree() { input.clearMirroredExit() }
+    }
+
+    private func inputsInSubtree() -> [Input] {
+        ((self as? Input).map { [$0] } ?? []) + children.flatMap { $0.inputsInSubtree() }
+    }
+
+    /// Text fields sit above the layer tree, so they don't inherit this node's enter/exit. Give each one the same
+    /// opacity and translation, and scale it around this node's pivot instead of its own corner: CA applies
+    /// `p' = anchor + t + s·(p − anchor)`, so pivoting around P needs an extra `t = (1 − s)·(P − anchor)`.
+    /// That term is linear in `s`, so with the same timing (springs included) the field tracks the node exactly.
+    private func mirror(_ values: [AnimatedProperty: AnimatedValue], timing: Timing, entering: Bool) {
+        let inputs = inputsInSubtree()
+        guard !inputs.isEmpty else { return }
+        func number(_ property: AnimatedProperty, _ fallback: CGFloat) -> CGFloat {
+            if case .number(let value)? = values[property] { return value }
+            return fallback
+        }
+        let rest = (s: style.scale, tx: style.translateX, ty: style.translateY, o: CGFloat(style.opacity))
+        let moved = (s: number(.scale, rest.s), tx: number(.translateX, rest.tx), ty: number(.translateY, rest.ty), o: number(.opacity, rest.o))
+        let (from, to) = entering ? (moved, rest) : (rest, moved)
+        let frame = frameInRoot
+        let pivot = CGPoint(x: frame.minX + frame.width * style.originX, y: frame.minY + frame.height * style.originY)
+        let scales = values[.scale] != nil
+
+        for input in inputs {
+            guard input.field.superview != nil, let fieldLayer = input.field.layer else { continue }
+            let field = input.field.frame
+            let anchor = CGPoint(x: field.minX + field.width * fieldLayer.anchorPoint.x, y: field.minY + field.height * fieldLayer.anchorPoint.y)
+            var tracks: [(String, CGFloat, CGFloat)] = []
+            if values[.opacity] != nil { tracks.append(("opacity", from.o, to.o)) }
+            if scales { tracks.append(("transform.scale", from.s, to.s)) }
+            if scales || values[.translateX] != nil {
+                tracks.append(("transform.translation.x", from.tx + (1 - from.s) * (pivot.x - anchor.x), to.tx + (1 - to.s) * (pivot.x - anchor.x)))
+            }
+            if scales || values[.translateY] != nil {
+                tracks.append(("transform.translation.y", from.ty + (1 - from.s) * (pivot.y - anchor.y), to.ty + (1 - to.s) * (pivot.y - anchor.y)))
+            }
+            for (keyPath, start, end) in tracks {
+                let animation = timing.basic(keyPath)
+                animation.fromValue = start
+                animation.toValue = end
+                if !entering {
+                    animation.fillMode = .forwards
+                    animation.isRemovedOnCompletion = false
+                }
+                fieldLayer.add(animation, forKey: "\(entering ? Input.mirroredEnter : Input.mirroredExit).\(keyPath)")
+            }
+        }
     }
 
     /// Plays keyframes on top of the style; returns a key for `cancelAnimation`.

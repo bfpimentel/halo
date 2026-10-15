@@ -111,7 +111,7 @@ All of these are exposed to JS as signals (`screens()`, `screen.safeArea()`, `ap
   - `<Box>`: flexbox container with background, border, radius, padding, gap, opacity
   - `<Text>`: CoreText-backed, font family/size/weight, color, truncation
   - `<Image>`: file path, SF Symbol name, or app icon by bundle id or `.app` path
-  - `<Input>`: a real `NSTextField` mounted over the node's frame after every layout (IME, selection, clipboard). `value`, `placeholder`, `autofocus`, `onInput`, `onSubmit`, `onKeyDown` (Enter/Escape/arrows/Tab; return true to consume). Needs a `keyboard` surface.
+  - `<Input>`: a real `NSTextField` mounted over the node's frame after every layout (IME, selection, clipboard). `value`, `placeholder`, `autofocus`, `onInput`, `onSubmit`, `onKeyDown` (Enter/Escape/arrows/Tab; return true to consume). Needs a `keyboard` surface. The field isn't in the layer tree, so `Node.play(enter:/exit:)` mirrors opacity, translation and scale (pivot-compensated) onto every field in the subtree (surface show/hide included). Style transitions and `animate()` keyframes on an ancestor are not mirrored yet.
   - `<Shape>` (later): paths for graphs and progress rings
 - Layout: **Yoga** (C API) owns the layout. After each layout pass, frames are pushed to CALayers inside one `CATransaction` with `setDisableActions(true)`.
 - Styling is a **typed props object**, not CSS: `style={{ padding: 8, gap: 6, background: "#1e1e2e", radius: 8 }}`. Keep the vocabulary to what's in the table above until a real widget needs more.

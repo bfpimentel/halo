@@ -31,6 +31,27 @@ describe("signals", () => {
     expect(runs).toBe(2);
   });
 
+  test("a custom equals is only asked to compare real values, never the first run's missing one", () => {
+    const list = signal([1, 2]);
+    const compared: unknown[][] = [];
+    const joined = computed(() => [...list()], {
+      equals: (a, b) => (compared.push([a, b]), a.join() === b.join()),
+    });
+    let runs = 0;
+    root(() =>
+      effect(() => {
+        joined();
+        runs++;
+      }),
+    );
+
+    list.set([1, 2]);
+    expect(runs).toBe(1);
+    expect(compared.every(([a]) => Array.isArray(a))).toBe(true);
+    list.set([3]);
+    expect(runs).toBe(2);
+  });
+
   test("batch coalesces writes into one effect run", () => {
     const a = signal(0);
     const b = signal(0);

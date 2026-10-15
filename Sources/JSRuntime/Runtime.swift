@@ -299,7 +299,6 @@ extension Runtime {
         guard let node = nodes.removeValue(forKey: id) else { return }
         nodeIDs[ObjectIdentifier(node)] = nil
         listeners[id] = nil
-        if let input = node as? Input { input.field.removeFromSuperview() }
         node.remove()
     }
 

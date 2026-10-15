@@ -81,6 +81,7 @@ class Computation<T> extends Owner implements Source {
   sources = new Set<Source>();
   state = DIRTY;
   value: T | undefined;
+  private hasValue = false;
 
   constructor(
     private fn: (previous: T | undefined) => T,
@@ -128,10 +129,12 @@ class Computation<T> extends Owner implements Source {
     listener = this;
     try {
       const value = this.fn(this.value);
-      if (!this.isEffect && !(this.equals && this.equals(this.value as T, value))) {
+      const unchanged = this.hasValue && this.equals && this.equals(this.value as T, value);
+      if (!this.isEffect && !unchanged) {
         for (const observer of this.observers) observer.state = DIRTY;
       }
       this.value = value;
+      this.hasValue = true;
     } catch (error) {
       reportError(error);
     } finally {
