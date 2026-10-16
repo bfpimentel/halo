@@ -2,6 +2,7 @@
 
 import { Box, Image, Surface, Text, screens, type ScreenInfo } from "halo";
 import { audio, battery, clock, frontApp, network, system } from "halo/services";
+import { DocShots } from "@/docs";
 
 const card = "#1e1e2ef2";
 const foreground = "#cdd6f4";
@@ -213,6 +214,7 @@ export default () => {
       <Shot name="status" screen={screen} top={60} left={760}>
         <Status />
       </Shot>
+      <DocShots screen={screen} />
       <Shot name="hero" screen={screen} top={600} left={60}>
         <Box style={{ gap: 14, padding: 4 }}>
           <Bar />

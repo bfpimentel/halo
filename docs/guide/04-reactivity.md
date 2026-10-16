@@ -18,6 +18,8 @@ setInterval(() => count.update((n) => n + 1), 1000);
 
 ## Rules
 
+<video src="../assets/signals.mp4" autoplay loop muted playsinline aria-label="A counter, a derived even/odd label and a list, all updating from signals"></video>
+
 - Read a signal by calling it: `count()`. Write with `count.set(1)` or `count.update((n) => n + 1)`.
 - A function in a prop or style value is reactive; a plain value is set once.
 - In `<Text>`, only function children update: `{() => `WS ${ws()}`}`, not `WS {ws()}`.
@@ -35,15 +37,15 @@ writes into one update.
 
 ## Getting data
 
-| Helper                                              | Use                                                              |
-| --------------------------------------------------- | ---------------------------------------------------------------- |
-| `clock.format("HH:mm")`                             | Time and date, ticking only as often as the pattern needs.       |
-| `battery`, `audio`, `network`, `frontApp`, `system` | System state ([guide](services.html)).                           |
-| `sh("cmd")`, `exec(…)`                              | Run a command once; resolves with its output.                    |
-| `poll("cmd", 5000)`                                 | A signal of a command's output, refreshed on an interval.        |
-| `spawn("cmd", args, { onLine })`                    | A long-running program's output, line by line.                   |
-| `readFile`, `writeFile`, `watchFile`                | Files: read once, save, or follow as a signal.                   |
-| `externalSignal("name")`                            | State pushed by `halo trigger` ([guide](external-signals.html)). |
+| Helper                                                                  | Use                                                              |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `clock.format("HH:mm")`                                                 | Time and date, ticking only as often as the pattern needs.       |
+| `battery`, `audio`, `network`, `frontApp`, `power`, `session`, `system` | System state ([guide](services.html)).                           |
+| `sh("cmd")`, `exec(…)`                                                  | Run a command once; resolves with its output.                    |
+| `poll("cmd", 5000)`                                                     | A signal of a command's output, refreshed on an interval.        |
+| `spawn("cmd", args, { onLine })`                                        | A long-running program's output, line by line.                   |
+| `readFile`, `writeFile`, `watchFile`                                    | Files: read once, save, or follow as a signal.                   |
+| `externalSignal("name")`                                                | State pushed by `halo trigger` ([guide](external-signals.html)). |
 
 ## Files and processes
 

@@ -67,6 +67,8 @@ let button: NativeNode | undefined;
          onClickOutside={() => open.set(false)}>…</Surface>
 ```
 
+![A calendar popup attached below a bar item](../assets/popup.png)
+
 An attached surface sits next to a node of another surface, stays on screen and follows the node.
 
 ## Notes

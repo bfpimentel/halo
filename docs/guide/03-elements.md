@@ -1,6 +1,7 @@
 # Elements
 
-Four elements, laid out with flexbox and styled with a `style` object.
+Five building blocks: `Box`, `Text`, `Image`, `Shape` and `Input`. Boxes lay out their children with flexbox, and every
+element takes a `style` object whose values can be signals.
 
 ![A launcher built from Box, Text, Image and Input](../assets/launcher.png)
 
@@ -26,6 +27,8 @@ A container. Layout: `flexDirection`, `justify`, `align`, `padding`, `gap`, `wid
 Paint: `background`, `borderColor`, `borderWidth`, `radius`, `opacity`. Transforms: `scale`, `rotate`, `translateX`,
 `translateY`, `origin`. Colors are `#rgb`, `#rrggbb` or `#rrggbbaa`.
 
+![Box paint and transform properties, and a row of growing boxes](../assets/box.png)
+
 ### Overlays
 
 `position: "absolute"` takes an element out of the row or column and places it over its siblings, measured from the
@@ -40,12 +43,18 @@ parent's edges with `top`, `right`, `bottom` and `left` (points or `"50%"`). Set
 </Box>
 ```
 
+![A badge over an app icon and a label inside a progress ring](../assets/overlay.png)
+
 Later siblings draw on top. A badge can hang outside its parent (`top: -4, right: -4`) and still gets clicks there.
 
 ## Text
 
 Box style plus `color`, `fontSize`, `fontWeight` (`"medium"`, `"bold"`, 100–900), `fontFamily`, `lines` (1 by
-default, 0 = no limit) and `textAlign`. Long text is truncated with "…". Emoji, CJK, right-to-left scripts and symbols
+default, 0 = no limit) and `textAlign`. Long text is truncated with "…".
+
+![Text sizes, weights, a monospaced family, truncation, wrapping and alignment](../assets/text.png)
+
+Emoji, CJK, right-to-left scripts and symbols
 fall back to system fonts on their own, in any `fontFamily`; for SF Symbols use `<Image symbol>`.
 
 ## Image
@@ -53,10 +62,14 @@ fall back to system fonts on their own, in any `fontFamily`; for SF Symbols use 
 One of `symbol` (an SF Symbol), `app` (a bundle id or `.app` path, for its icon) or `file`. `size` in points; `color`
 tints symbols.
 
+![Tinted SF Symbols and app icons](../assets/image.png)
+
 ## Shape
 
 Vector paths: progress rings, graphs, icons. `path` is SVG path data (arcs included) in a 100×100 `viewBox`; the
 shape fits it into its own size.
+
+![A progress ring, a sparkline, a heart and a check mark](../assets/shape.png)
 
 ```tsx
 import { Shape, ring, sparkline } from "halo";
@@ -99,6 +112,8 @@ area })` draws a line graph.
 
 A native text field. Needs `input="keyboard"` on its surface.
 
+![An empty field with a placeholder and one with text](../assets/input.png)
+
 ```tsx
 <Input
   autofocus
@@ -119,6 +134,10 @@ A native text field. Needs `input="keyboard"` on its surface.
 
 `onClick`, `onHover`, `onScroll` on Box, Text, Image and Shape. An event goes to the deepest element under the pointer that
 listens for it. The surface needs `input="interactive"` (or `hover` for hover and scroll).
+
+<video src="../assets/events.mp4" autoplay loop muted playsinline aria-label="A menu: rows highlight on hover and shrink when pressed"></video>
+
+Here `onHover` and `onClick` set signals that drive `background` and `scale`, each with a `transition`.
 
 ## Refs
 

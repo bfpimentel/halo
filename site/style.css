@@ -217,8 +217,14 @@ th {
   font-weight: 600;
 }
 
-img {
+img,
+video {
   max-width: 100%;
+}
+
+video {
+  display: block;
+  border-radius: 12px;
 }
 
 @media (max-width: 760px) {

@@ -2,6 +2,8 @@
 
 Push state into widgets from anywhere:
 
+<video src="../assets/trigger.mp4" autoplay loop muted playsinline aria-label="Workspace pills following halo trigger commands"></video>
+
 ```bash
 halo trigger music title="Song" artist="Band"
 ```

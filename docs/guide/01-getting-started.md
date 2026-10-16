@@ -91,6 +91,8 @@ a component; everything it renders is on screen.
 halo start
 ```
 
+![The starter widget: a clock in the corner](../assets/starter.png)
+
 Edits under the config folder reload on save. A build error keeps the previous version running and shows a panel in
 the corner; runtime errors show there too, with your file and line. Full output: `halo log`.
 
