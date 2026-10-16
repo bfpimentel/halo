@@ -1,8 +1,9 @@
-// Every built-in service: a status strip (front app, CPU, memory, network, volume, battery) and a volume OSD
-// that appears when the volume or mute changes. Scroll over the volume chip to change it.
+// Every built-in service: a status strip (front app, CPU, memory, network, volume, battery, plus Low Power Mode and
+// throttling chips when they apply), the last wake from sleep, and a volume OSD that appears when the volume or
+// mute changes. Scroll over the volume chip to change it.
 
 import { Box, Image, PerScreen, Surface, Text, type ScreenInfo } from "halo";
-import { audio, battery, frontApp, network, system } from "halo/services";
+import { audio, battery, frontApp, network, power, session, system } from "halo/services";
 import { computed, effect, signal, untrack } from "halo/signals";
 
 const card = "#1e1e2ef0";
@@ -90,6 +91,29 @@ function Status(props: { screen: ScreenInfo }) {
             <Chip icon={batteryIcon} text={() => `${battery.percent() ?? "–"}%`} />
           ) : null
         }
+        {() =>
+          power.lowPowerMode() ? (
+            <Chip icon={() => "leaf.fill"} text={() => "low power"} />
+          ) : null
+        }
+        {() => {
+          const thermal = power.thermal();
+          return thermal && thermal !== "nominal" ? (
+            <Chip icon={() => "thermometer.high"} text={() => thermal} />
+          ) : null;
+        }}
+        {() => {
+          const woke = session.lastWake();
+          if (woke === undefined) return null;
+          const time = new Date(woke);
+          const pad = (n: number) => String(n).padStart(2, "0");
+          return (
+            <Chip
+              icon={() => "sun.horizon"}
+              text={() => `woke ${pad(time.getHours())}:${pad(time.getMinutes())}`}
+            />
+          );
+        }}
       </Box>
     </Surface>
   );

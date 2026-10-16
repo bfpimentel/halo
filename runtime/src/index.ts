@@ -3,6 +3,7 @@ export {
   Image,
   Input,
   PerScreen,
+  Shape,
   Surface,
   Text,
   focus,
@@ -14,6 +15,8 @@ export type {
   ImageProps,
   InputProps,
   PerScreenProps,
+  ShapeProps,
+  ShapeStyle,
   StyleProp,
   TextProps,
   BoxStyle,
@@ -39,6 +42,9 @@ export type {
   KeyframeOptions,
   KeyframeTracks,
   Timing,
+  ShapeTransitionKey,
   Transitions,
 } from "halo/animation";
 export type { ExecResult, Rect, ScreenInfo } from "halo/native";
+export { ring, sparkline } from "halo/shapes";
+export type { SparklineOptions } from "halo/shapes";

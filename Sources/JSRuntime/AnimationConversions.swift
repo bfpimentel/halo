@@ -47,11 +47,14 @@ enum AnimationConversions {
     }
 
     /// `{ opacity: 200, scale: { duration: 300, curve: "spring" }, layout: 200, all: 150 }`
+    /// Animated by `Shape` itself rather than through `AnimatedProperty`.
+    static let shapeKeys: Set<String> = ["fill", "stroke", "track", "strokeWidth", "strokeStart", "strokeEnd", "path"]
+
     static func transitions(_ value: JSValue) -> [String: Timing] {
         guard value.isObject, let keys = value.toDictionary()?.keys else { return [:] }
         var result: [String: Timing] = [:]
         for case let key as String in keys {
-            guard key == "all" || key == "layout" || AnimatedProperty(rawValue: key) != nil else {
+            guard key == "all" || key == "layout" || shapeKeys.contains(key) || AnimatedProperty(rawValue: key) != nil else {
                 Log.warn("transition: \"\(key)\" isn't animatable")
                 continue
             }

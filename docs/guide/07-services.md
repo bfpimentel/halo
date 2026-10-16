@@ -6,7 +6,7 @@ System state as signals, from `halo/services`. A service runs only while somethi
 ![A status strip](../assets/status.png)
 
 ```tsx
-import { audio, battery, frontApp, network, system } from "halo/services";
+import { audio, battery, frontApp, network, power, session, system } from "halo/services";
 
 <Text>
   {() => `${battery.percent()}% · ${Math.round((system.cpu() ?? 0) * 100)}% CPU`}
@@ -19,6 +19,8 @@ import { audio, battery, frontApp, network, system } from "halo/services";
 | `audio`    | `volume` (0–1), `muted`, `device`                                               | on volume or device change |
 | `network`  | `connected`, `type` (`wifi`, `ethernet`, …, `none`), `expensive`, `constrained` | on network change          |
 | `frontApp` | `name`, `bundleId`, `pid`                                                       | on app switch              |
+| `power`    | `lowPowerMode`, `thermal` (`nominal`, `fair`, `serious`, `critical`)            | on change                  |
+| `session`  | `locked`, `displaysAsleep`, `lastWake` (ms; changes on every wake)              | on change                  |
 | `system`   | `cpu(ms?)`, `memory(ms?)`, `memoryUsed`, `memoryTotal`                          | every `ms` (default 2000)  |
 | `clock`    | `format(pattern)`                                                               | every minute or second     |
 
@@ -38,7 +40,10 @@ returns `false` there.
 ## Notes
 
 - `frontApp.bundleId()` works with `<Image app={…}>` for the app's icon.
-- No Wi-Fi network name: it needs a Location permission halo can't ask for.
+- No Wi-Fi network name: it needs a Location permission halo can't ask for. No Focus/Do Not Disturb either: macOS
+  protects its state and the public API needs an authorization prompt.
+- `session.locked()` relies on undocumented macOS signals, so it may stay `undefined` on future versions.
+- Use `session.lastWake()` in an effect to refresh data after sleep.
 - `system` has no notification to follow, so it samples; pick the slowest interval you can live with.
 
 Reference: [`halo/services`](../reference/halo-services.html). Full example:

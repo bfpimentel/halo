@@ -37,6 +37,48 @@ fall back to system fonts on their own, in any `fontFamily`; for SF Symbols use 
 One of `symbol` (an SF Symbol), `app` (a bundle id or `.app` path, for its icon) or `file`. `size` in points; `color`
 tints symbols.
 
+## Shape
+
+Vector paths: progress rings, graphs, icons. `path` is SVG path data (arcs included) in a 100×100 `viewBox`; the
+shape fits it into its own size.
+
+```tsx
+import { Shape, ring, sparkline } from "halo";
+
+<Shape
+  path={ring()}
+  style={{
+    width: 48,
+    height: 48,
+    fill: "transparent",
+    stroke: "#89b4fa",
+    track: "#313244",
+    strokeWidth: 5,
+    lineCap: "round",
+    strokeEnd: () => (battery.percent() ?? 0) / 100,
+    transition: { strokeEnd: 300 },
+  }}
+/>;
+<Shape
+  path={() => sparkline(history())}
+  fit="stretch"
+  style={{ height: 24, fill: "transparent", stroke: "#a6e3a1" }}
+/>;
+```
+
+| Prop / style               | Does                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `path`, `viewBox`          | The path and its coordinate space (default `[100, 100]`)                         |
+| `fit`                      | `"contain"` (default) keeps proportions; `"stretch"` fills both axes, for graphs |
+| `fill`                     | White by default; `"transparent"` for outlines only                              |
+| `stroke`, `strokeWidth`    | Outline color and width in points (it stays inside the shape)                    |
+| `track`                    | The whole path under the stroke: the empty part of a ring                        |
+| `strokeStart`, `strokeEnd` | The drawn part of the stroke, 0–1                                                |
+| `lineCap`, `lineJoin`      | `butt`/`round`/`square`, `miter`/`round`/`bevel`                                 |
+
+Give a shape a size, like an empty Box. `ring()` starts at the top and goes clockwise; `sparkline(values, { min, max,
+area })` draws a line graph.
+
 ## Input
 
 A native text field. Needs `input="keyboard"` on its surface.
@@ -59,7 +101,7 @@ A native text field. Needs `input="keyboard"` on its surface.
 
 ## Events
 
-`onClick`, `onHover`, `onScroll` on Box, Text and Image. An event goes to the deepest element under the pointer that
+`onClick`, `onHover`, `onScroll` on Box, Text, Image and Shape. An event goes to the deepest element under the pointer that
 listens for it. The surface needs `input="interactive"` (or `hover` for hover and scroll).
 
 ## Refs

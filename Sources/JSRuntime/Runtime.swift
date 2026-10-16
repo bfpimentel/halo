@@ -333,6 +333,7 @@ extension Runtime {
         let node: Node = switch kind {
         case "text": Text("")
         case "image": Image()
+        case "shape": Shape()
         case "input": makeInput(id)
         default: Box()
         }

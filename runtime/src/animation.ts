@@ -31,7 +31,18 @@ export interface Animatable {
 }
 
 /** `style.transition`: per property, plus `all` (any paint property) and `layout` (position/size changes). */
-export type Transitions = { [K in keyof Animatable | "all" | "layout"]?: Timing };
+export type Transitions = {
+  [K in keyof Animatable | "all" | "layout" | ShapeTransitionKey]?: Timing;
+};
+/** `<Shape>` properties that `transition` can animate (`path` morphs between paths with the same commands). */
+export type ShapeTransitionKey =
+  | "fill"
+  | "stroke"
+  | "track"
+  | "strokeWidth"
+  | "strokeStart"
+  | "strokeEnd"
+  | "path";
 
 /** Played when a node or surface appears: animates `from` these values to its style. */
 export type EnterTransition = {

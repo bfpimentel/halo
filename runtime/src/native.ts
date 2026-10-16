@@ -28,7 +28,7 @@ export interface ExecResult {
 /** Installed by the Swift host (`JSRuntime/Bridge.swift`). Ids are plain integers owned by the host. */
 export interface Native {
   log(level: "log" | "warn" | "error", message: string): void;
-  createNode(kind: "box" | "text" | "image" | "input"): number;
+  createNode(kind: "box" | "text" | "image" | "input" | "shape"): number;
   setStyle(id: number, key: string, value: unknown): void;
   setProp(id: number, key: string, value: unknown): void;
   insert(parent: number, child: number, index: number): void;

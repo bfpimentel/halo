@@ -16,7 +16,8 @@ Animate style changes:
 />
 ```
 
-Keys: any animatable property, `all`, or `layout` (position and size). Values: milliseconds or
+Keys: any animatable property, `all`, or `layout` (position and size). On a `<Shape>` also `fill`, `stroke`, `track`,
+`strokeWidth`, `strokeStart`, `strokeEnd` and `path` (morphs between paths with the same commands). Values: milliseconds or
 `{ duration, curve, delay }`.
 
 ## Curves

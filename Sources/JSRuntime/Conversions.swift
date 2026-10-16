@@ -102,6 +102,9 @@ enum Conversions {
             case "right": .right
             default: .left
             }
+        case "fill", "stroke", "track", "strokeWidth", "strokeStart", "strokeEnd", "lineCap", "lineJoin":
+            guard let shape = node as? Shape else { return Log.warn("style.\(key) only applies to <Shape>") }
+            applyShapeStyle(key, value, to: shape)
         case "color", "fontSize", "fontWeight", "fontFamily":
             if let text = node as? Text {
                 applyTextStyle(key, value, font: &text.font, color: &text.color)
@@ -112,6 +115,29 @@ enum Conversions {
             }
         default:
             Log.warn("unknown style key \"\(key)\"")
+        }
+    }
+
+    private static func applyShapeStyle(_ key: String, _ value: JSValue, to shape: Shape) {
+        switch key {
+        case "fill": shape.fill = value.isUndefined || value.isNull ? .white : color(value)
+        case "stroke": shape.stroke = color(value)
+        case "track": shape.track = color(value)
+        case "strokeWidth": shape.strokeWidth = number(value) ?? 1
+        case "strokeStart": shape.strokeStart = min(1, max(0, number(value) ?? 0))
+        case "strokeEnd": shape.strokeEnd = min(1, max(0, number(value) ?? 1))
+        case "lineCap":
+            shape.lineCap = switch value.toString() {
+            case "round": .round
+            case "square": .square
+            default: .butt
+            }
+        default:
+            shape.lineJoin = switch value.toString() {
+            case "round": .round
+            case "bevel": .bevel
+            default: .miter
+            }
         }
     }
 
@@ -139,6 +165,13 @@ enum Conversions {
             image.size = number(value) ?? 16
         case (let image as Image, "color"):
             image.color = color(value)
+        case (let shape as Shape, "path"):
+            shape.path = value.isString ? value.toString() : ""
+        case (let shape as Shape, "viewBox"):
+            let size = value.isArray ? value.toArray().compactMap { ($0 as? NSNumber).map { CGFloat($0.doubleValue) } } : []
+            shape.viewBox = size.count == 2 ? CGSize(width: size[0], height: size[1]) : CGSize(width: 100, height: 100)
+        case (let shape as Shape, "fit"):
+            shape.fit = value.toString() == "stretch" ? .stretch : .contain
         case (let input as Input, "value"):
             input.value = value.isString ? value.toString() : ""
         case (let input as Input, "placeholder"):

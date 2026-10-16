@@ -15,7 +15,7 @@ extension Service {
 }
 
 public enum Services {
-    /// `name` is `battery`, `audio`, `network`, `frontApp` or `system`; `system` takes `intervalMs`.
+    /// `name` is `battery`, `audio`, `network`, `frontApp`, `power`, `session` or `system`; `system` takes `intervalMs`.
     @MainActor
     public static func make(_ name: String, options: [String: Any] = [:]) -> Service? {
         switch name {
@@ -23,6 +23,8 @@ public enum Services {
         case "audio": AudioService()
         case "network": NetworkService()
         case "frontApp": FrontAppService()
+        case "power": PowerService()
+        case "session": SessionService()
         case "system": SystemService(interval: (options["intervalMs"] as? Double).map { $0 / 1000 } ?? 2)
         default: nil
         }

@@ -250,3 +250,45 @@ export const system: System = {
   memoryUsed: (intervalMs) => sample(intervalMs)?.memoryUsed,
   memoryTotal: () => sample()?.memoryTotal,
 };
+
+/** Power state beyond the battery. Every value is reactive. */
+export interface Power {
+  /** Low Power Mode is on. */
+  lowPowerMode(): boolean | undefined;
+  /** How hot the Mac runs; anything above `"nominal"` means macOS is throttling. */
+  thermal(): "nominal" | "fair" | "serious" | "critical" | undefined;
+}
+
+interface PowerState {
+  lowPowerMode: boolean;
+  thermal: "nominal" | "fair" | "serious" | "critical";
+}
+
+/** Low Power Mode and the thermal state, updated as they change. */
+export const power: Power = {
+  lowPowerMode: () => read<PowerState>("power")?.lowPowerMode,
+  thermal: () => read<PowerState>("power")?.thermal,
+};
+
+/** The login session. Every value is reactive. */
+export interface Session {
+  /** The screen is locked. Uses undocumented macOS signals: may stay undefined on future versions. */
+  locked(): boolean | undefined;
+  /** The displays are asleep. */
+  displaysAsleep(): boolean | undefined;
+  /** When the Mac last woke from sleep (ms since epoch), since the service started. Changes on every wake. */
+  lastWake(): number | undefined;
+}
+
+interface SessionState {
+  locked: boolean | null;
+  displaysAsleep: boolean;
+  lastWake: number | null;
+}
+
+/** Screen lock, display sleep and wake from system sleep. */
+export const session: Session = {
+  locked: () => read<SessionState>("session")?.locked ?? undefined,
+  displaysAsleep: () => read<SessionState>("session")?.displaysAsleep,
+  lastWake: () => read<SessionState>("session")?.lastWake ?? undefined,
+};

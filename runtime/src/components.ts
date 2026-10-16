@@ -83,6 +83,23 @@ export interface TextStyle extends BoxStyle {
   fontFamily?: string;
 }
 
+/** Box properties plus shape paint. Shape paint animates with `transition` like any other property. */
+export interface ShapeStyle extends BoxStyle {
+  /** Fill color; white by default, `"transparent"` for none. */
+  fill?: Color;
+  /** Stroke color; none by default. */
+  stroke?: Color;
+  /** Color of the whole path under the stroke: the empty part of a progress ring or bar. */
+  track?: Color;
+  /** In points, whatever the shape's scale. Default 1. */
+  strokeWidth?: number;
+  /** Where the stroke starts and ends along the path, 0–1. Animate `strokeEnd` for progress rings. */
+  strokeStart?: number;
+  strokeEnd?: number;
+  lineCap?: "butt" | "round" | "square";
+  lineJoin?: "miter" | "round" | "bevel";
+}
+
 /** A style object (or a function returning one); each property can also be reactive on its own. */
 export type StyleProp<S> = Reactive<{ [K in keyof S]?: Reactive<S[K]> }>;
 
@@ -111,13 +128,16 @@ function wire(node: NativeNode, props: Interactive): void {
   props.ref?.(node);
 }
 
-function createNode(kind: "box" | "text" | "image" | "input"): NativeNode {
+function createNode(kind: "box" | "text" | "image" | "input" | "shape"): NativeNode {
   const id = native.createNode(kind);
   onCleanup(() => native.destroyNode(id));
   return new NativeNode(id);
 }
 
-function applyStyle(node: NativeNode, style: StyleProp<TextStyle> | undefined): void {
+function applyStyle<S extends object>(
+  node: NativeNode,
+  style: StyleProp<S> | undefined,
+): void {
   if (!style) return;
   if (typeof style === "function") {
     let previous: string[] = [];
@@ -238,6 +258,30 @@ export interface ImageProps extends Interactive {
 export function Image(props: ImageProps): NativeNode {
   const node = createNode("image");
   for (const key of ["size", "color", "symbol", "app", "file"] as const) {
+    const value = props[key];
+    if (typeof value === "function") effect(() => native.setProp(node.id, key, value()));
+    else if (value !== undefined) native.setProp(node.id, key, value);
+  }
+  applyStyle(node, props.style);
+  wire(node, props);
+  return node;
+}
+
+/** Props of `<Shape>`. Give it a size (`style.width`/`height`), like a Box with no content. */
+export interface ShapeProps extends Interactive {
+  /** SVG path data (`"M 0 0 L 100 100"`, arcs included), in `viewBox` coordinates. `ring()` and `sparkline()` make common ones. */
+  path: Reactive<string>;
+  /** The path's coordinate space. Default [100, 100]. */
+  viewBox?: Reactive<[width: number, height: number]>;
+  /** `"contain"` (default) keeps proportions, centered; `"stretch"` fills each axis (graphs). */
+  fit?: Reactive<"contain" | "stretch">;
+  style?: StyleProp<ShapeStyle>;
+}
+
+/** Vector paths: rings, graphs, icons. Strokes keep their width in points and stay inside the node. */
+export function Shape(props: ShapeProps): NativeNode {
+  const node = createNode("shape");
+  for (const key of ["viewBox", "fit", "path"] as const) {
     const value = props[key];
     if (typeof value === "function") effect(() => native.setProp(node.id, key, value()));
     else if (value !== undefined) native.setProp(node.id, key, value);

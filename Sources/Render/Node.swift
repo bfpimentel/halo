@@ -146,6 +146,9 @@ public class Node {
 
     func contentsScaleDidChange() {}
 
+    /// After layout gave the layer new bounds (shapes refit their path here).
+    func boundsDidChange() {}
+
     func applyFrames() {
         if YGNodeGetHasNewLayout(yoga) {
             let previous = hasLaidOut ? layoutFrame : nil
@@ -175,6 +178,7 @@ public class Node {
             x: layoutFrame.minX + layoutFrame.width * style.originX,
             y: layoutFrame.minY + layoutFrame.height * style.originY
         )
+        if oldBounds.size != layer.bounds.size { boundsDidChange() }
         guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return }
         mirrorLayout(from: previous, timing: timing)
         for (keyPath, from, to) in [
@@ -315,7 +319,7 @@ public final class Box: Node {
 }
 
 /// Property changes apply instantly; animation will only ever be explicit.
-private final class NoImplicitActions: NSObject, CALayerDelegate {
+final class NoImplicitActions: NSObject, CALayerDelegate {
     nonisolated(unsafe) static let shared = NoImplicitActions()
 
     func action(for layer: CALayer, forKey event: String) -> CAAction? {
