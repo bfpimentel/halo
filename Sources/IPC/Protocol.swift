@@ -47,7 +47,7 @@ public struct UsageError: Error, Equatable, CustomStringConvertible {
 }
 
 public enum IPC {
-    public static let version = "0.3.0"
+    public static let version = "0.4.0"
 
     public static let usage = """
     usage: halo <command>

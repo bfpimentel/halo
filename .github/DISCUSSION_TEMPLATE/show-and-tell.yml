@@ -28,7 +28,7 @@ body:
     attributes:
       label: halo version
       description: Output of `halo version`.
-      placeholder: halo 0.3.0
+      placeholder: halo 0.4.0
     validations:
       required: true
 
