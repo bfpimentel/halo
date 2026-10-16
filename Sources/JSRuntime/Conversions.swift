@@ -64,6 +64,16 @@ enum Conversions {
             node.style.width = length(value)
         case "height":
             node.style.height = length(value)
+        case "position":
+            node.style.position = value.toString() == "absolute" && present ? .absolute : .relative
+        case "top":
+            node.style.top = length(value)
+        case "right":
+            node.style.right = length(value)
+        case "bottom":
+            node.style.bottom = length(value)
+        case "left":
+            node.style.left = length(value)
         case "grow":
             node.style.grow = number(value) ?? defaults.grow
         case "shrink":

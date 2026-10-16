@@ -116,15 +116,16 @@ public class Node {
     }
 
     /// Nodes under `point` (in this node's own coordinates), deepest first. Later siblings are on top.
-    /// Children are hit where they're drawn: their scale, rotation and translation count.
+    /// Children are hit where they're drawn: their scale, rotation and translation count, and so do parts outside
+    /// the parent (an absolutely positioned badge hanging over an icon's corner).
     public func hitPath(at point: CGPoint) -> [Node] {
-        guard layer.opacity > 0, layer.bounds.contains(point) else { return [] }
+        guard layer.opacity > 0 else { return [] }
         for child in children.reversed() {
             let local = child.layer.convert(point, from: layer)
             let path = child.hitPath(at: local)
             if !path.isEmpty { return path + [self] }
         }
-        return [self]
+        return layer.bounds.contains(point) ? [self] : []
     }
 
     /// Whether the node draws anything at its frame (empty layout containers don't, so they let clicks through).
@@ -296,6 +297,14 @@ public class Node {
         YGNodeStyleSetGap(yoga, .all, Float(style.gap))
         YGNodeStyleSetFlexGrow(yoga, Float(style.grow))
         YGNodeStyleSetFlexShrink(yoga, Float(style.shrink))
+        YGNodeStyleSetPositionType(yoga, style.position == .absolute ? .absolute : .relative)
+        for (edge, length) in [(YGEdge.top, style.top), (.right, style.right), (.bottom, style.bottom), (.left, style.left)] {
+            switch length {
+            case .auto: YGNodeStyleSetPositionAuto(yoga, edge)
+            case .points(let value): YGNodeStyleSetPosition(yoga, edge, Float(value))
+            case .percent(let value): YGNodeStyleSetPositionPercent(yoga, edge, Float(value))
+            }
+        }
 
         switch style.width {
         case .auto: YGNodeStyleSetWidthAuto(yoga)

@@ -26,6 +26,22 @@ A container. Layout: `flexDirection`, `justify`, `align`, `padding`, `gap`, `wid
 Paint: `background`, `borderColor`, `borderWidth`, `radius`, `opacity`. Transforms: `scale`, `rotate`, `translateX`,
 `translateY`, `origin`. Colors are `#rgb`, `#rrggbb` or `#rrggbbaa`.
 
+### Overlays
+
+`position: "absolute"` takes an element out of the row or column and places it over its siblings, measured from the
+parent's edges with `top`, `right`, `bottom` and `left` (points or `"50%"`). Set all four to 0 to cover the parent:
+
+```tsx
+<Box style={{ width: 56, height: 56 }}>
+  <Shape path={ring()} style={{ width: 56, height: 56, … }} />
+  <Box style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, justify: "center", align: "center" }}>
+    <Text>{() => `${percent()}%`}</Text>
+  </Box>
+</Box>
+```
+
+Later siblings draw on top. A badge can hang outside its parent (`top: -4, right: -4`) and still gets clicks there.
+
 ## Text
 
 Box style plus `color`, `fontSize`, `fontWeight` (`"medium"`, `"bold"`, 100–900), `fontFamily`, `lines` (1 by

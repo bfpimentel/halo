@@ -18,6 +18,13 @@ public enum Length: Hashable, Sendable {
     case percent(CGFloat)
 }
 
+public enum Position: Hashable, Sendable {
+    /// In the parent's row or column.
+    case relative
+    /// Out of the flow: placed by `top`/`right`/`bottom`/`left` against the parent's padding box, over its siblings.
+    case absolute
+}
+
 public struct Spacing: Hashable, Sendable {
     public var top: CGFloat
     public var right: CGFloat
@@ -53,6 +60,13 @@ public struct Style: Equatable {
     public var height: Length
     public var grow: CGFloat
     public var shrink: CGFloat
+    public var position: Position
+    /// Edge offsets; `.auto` leaves an edge unset. For `.absolute`, they place the node; for `.relative`, they nudge
+    /// it from where the flow put it.
+    public var top: Length
+    public var right: Length
+    public var bottom: Length
+    public var left: Length
 
     public var background: CGColor?
     public var borderColor: CGColor?
@@ -78,6 +92,11 @@ public struct Style: Equatable {
         height: Length = .auto,
         grow: CGFloat = 0,
         shrink: CGFloat = 0,
+        position: Position = .relative,
+        top: Length = .auto,
+        right: Length = .auto,
+        bottom: Length = .auto,
+        left: Length = .auto,
         background: CGColor? = nil,
         borderColor: CGColor? = nil,
         borderWidth: CGFloat = 0,
@@ -99,6 +118,11 @@ public struct Style: Equatable {
         self.height = height
         self.grow = grow
         self.shrink = shrink
+        self.position = position
+        self.top = top
+        self.right = right
+        self.bottom = bottom
+        self.left = left
         self.background = background
         self.borderColor = borderColor
         self.borderWidth = borderWidth

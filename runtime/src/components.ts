@@ -56,6 +56,13 @@ export interface BoxStyle {
   height?: Length;
   grow?: number;
   shrink?: number;
+  /** `"absolute"` takes the node out of the row/column and places it over its siblings with `top`/`right`/`bottom`/`left`. */
+  position?: "relative" | "absolute";
+  /** Offset from the parent's top edge (absolute) or from the node's own place (relative). Points or `"50%"`. */
+  top?: Length;
+  right?: Length;
+  bottom?: Length;
+  left?: Length;
   background?: Color;
   borderColor?: Color;
   borderWidth?: number;

@@ -72,6 +72,35 @@ import Testing
         #expect(root.hitPath(at: CGPoint(x: 125, y: 10)).map(ObjectIdentifier.init) == [ObjectIdentifier(row)])
     }
 
+    @Test func absoluteChildrenLeaveTheFlowAndPlaceByTheirEdges() {
+        let first = Box(style: Style(width: .points(40), height: .points(20)))
+        let badge = Box(style: Style(width: .points(10), height: .points(10), position: .absolute, top: .points(-4), right: .points(-4)))
+        let label = Box(style: Style(height: .points(12), position: .absolute, top: .percent(50), right: .points(0), left: .points(0)))
+        let second = Box(style: Style(width: .points(40), height: .points(20)))
+        let column = Box(
+            style: Style(padding: Spacing(10), width: .points(100)), children: [first, badge, label, second]
+        )
+        _ = mount(Box(style: Style(align: .start), children: [Box(style: Style(flexDirection: .row, align: .start), children: [column])]), size: CGSize(width: 300, height: 300))
+
+        #expect(second.layoutFrame.origin == CGPoint(x: 10, y: 30), "absolute siblings take no space")
+        #expect(column.layoutFrame.height == 60)
+        #expect(badge.layoutFrame == CGRect(x: 94, y: -4, width: 10, height: 10), "edges measure from the border, past padding")
+        #expect(label.layoutFrame == CGRect(x: 0, y: 30, width: 100, height: 12), "left + right stretch it; % of the parent")
+    }
+
+    @Test func overlaysAreHitOnTopIncludingOutsideTheirParent() {
+        let icon = Box(style: Style(width: .points(30), height: .points(30)))
+        let badge = Box(style: Style(width: .points(10), height: .points(10), position: .absolute, top: .points(-5), right: .points(-5)))
+        let wrapper = Box(style: Style(width: .points(30), height: .points(30)), children: [icon, badge])
+        let row = Box(style: Style(flexDirection: .row, padding: Spacing(20)), children: [wrapper])
+        let root = mount(row, size: CGSize(width: 200, height: 200))
+
+        let ids = { (nodes: [Node]) in nodes.map(ObjectIdentifier.init) }
+        #expect(ids(root.hitPath(at: CGPoint(x: 47, y: 18))) == ids([badge, wrapper, row]), "over the icon's corner")
+        #expect(ids(root.hitPath(at: CGPoint(x: 53, y: 16))) == ids([badge, wrapper, row]), "the overhang outside the wrapper")
+        #expect(ids(root.hitPath(at: CGPoint(x: 30, y: 30))) == ids([icon, wrapper, row]))
+    }
+
     @Test func hitTestingFollowsTransforms() {
         let target = Box(style: Style(width: .points(20), height: .points(20)))
         let row = Box(style: Style(flexDirection: .row, padding: Spacing(left: 40)), children: [target])
