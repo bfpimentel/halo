@@ -47,7 +47,8 @@ public struct UsageError: Error, Equatable, CustomStringConvertible {
 }
 
 public enum IPC {
-    public static let version = "0.4.0"
+    /// "dev" in source: releases inject the git tag's version at build time (scripts/package.sh, the Homebrew formula).
+    public static let version = "dev"
 
     public static let usage = """
     usage: halo <command>

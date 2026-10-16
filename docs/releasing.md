@@ -46,14 +46,16 @@ The release workflow pins each release itself: after publishing, it runs `script
 
 ## Cutting a release
 
-1. On an up-to-date, clean `main`, run `scripts/release.sh X.Y.Z --push`. It bumps `IPC.version` (`Sources/IPC/Protocol.swift`, which `scripts/package.sh` checks against the tag) and the version placeholders in the issue and discussion forms, commits `chore: release vX.Y.Z`, tags it and pushes both. Without `--push` it stops after tagging. The workflow then builds the zip, publishes the GitHub release, updates the Homebrew formula in the tap and commits the Nix pin to `main`. Pull afterwards.
-
-If a tag was pushed without the bump, the workflow fails before publishing. Delete the tag and run the script again:
+The git tag is the version. Source says `dev` (`IPC.version` in `Sources/IPC/Protocol.swift`); release builds write
+the tag's version in for the build only (`scripts/package.sh <version>`, and the formula's `inreplace`).
 
 ```bash
-git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z
-scripts/release.sh X.Y.Z --push
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
+
+Tag any commit on `main`. The workflow rejects tags that aren't `vX.Y.Z`, then builds the zip, publishes the GitHub
+release, updates the Homebrew formula in the tap and commits the Nix pin to `main`. Pull afterwards. Nothing to bump
+by hand.
 
 ## Checking the packages
 

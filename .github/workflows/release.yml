@@ -35,6 +35,10 @@ jobs:
         id: package
         run: |
           version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME isn't vX.Y.Z; the tag is the version halo reports."
+            exit 1
+          fi
           scripts/package.sh "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "zip=dist/halo-$version-macos.zip" >> "$GITHUB_OUTPUT"
