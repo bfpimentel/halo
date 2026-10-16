@@ -69,8 +69,12 @@ public enum IPC {
             ?? (NSTemporaryDirectory() as NSString).appendingPathComponent("halo.sock")
     }
 
-    public static var logPath: String {
-        (NSTemporaryDirectory() as NSString).appendingPathComponent("halo.log")
+    /// Next to the socket, so hosts started with different `HALO_SOCKET`s never share (or truncate) a log.
+    public static var logPath: String { logPath(forSocket: socketPath) }
+
+    static func logPath(forSocket socket: String) -> String {
+        let path = socket as NSString
+        return path.pathExtension == "sock" ? path.deletingPathExtension + ".log" : socket + ".log"
     }
 
     public static func parse(arguments: [String]) throws -> Command {

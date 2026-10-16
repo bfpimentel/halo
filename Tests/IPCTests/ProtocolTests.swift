@@ -3,6 +3,12 @@ import Testing
 @testable import IPC
 
 @Suite struct ProtocolTests {
+    @Test func eachSocketGetsItsOwnLog() {
+        #expect(IPC.logPath(forSocket: "/tmp/halo.sock") == "/tmp/halo.log")
+        #expect(IPC.logPath(forSocket: "/tmp/halo-shots.sock") == "/tmp/halo-shots.log")
+        #expect(IPC.logPath(forSocket: "/tmp/custom") == "/tmp/custom.log")
+    }
+
     @Test func triggerParsesPayloadSplittingOnTheFirstEquals() throws {
         let command = try IPC.parse(arguments: ["trigger", "aerospace.workspace", "focused=2", "query=a=b", "empty="])
         #expect(command == .send(.trigger(name: "aerospace.workspace", payload: ["focused": "2", "query": "a=b", "empty": ""])))

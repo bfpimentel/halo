@@ -29,7 +29,8 @@ Paint: `background`, `borderColor`, `borderWidth`, `radius`, `opacity`. Transfor
 ## Text
 
 Box style plus `color`, `fontSize`, `fontWeight` (`"medium"`, `"bold"`, 100–900), `fontFamily`, `lines` (1 by
-default, 0 = no limit) and `textAlign`. Long text is truncated with "…".
+default, 0 = no limit) and `textAlign`. Long text is truncated with "…". Emoji, CJK, right-to-left scripts and symbols
+fall back to system fonts on their own, in any `fontFamily`; for SF Symbols use `<Image symbol>`.
 
 ## Image
 
