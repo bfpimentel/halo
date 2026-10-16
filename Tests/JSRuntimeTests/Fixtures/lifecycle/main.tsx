@@ -1,8 +1,8 @@
-import { Box, Image, PerScreen, Surface, Text } from "halo";
+import { Box, For, Image, PerScreen, Surface, Text } from "halo";
 import { clock } from "halo/services";
 import { signal } from "halo/signals";
 
-const items = signal([1, 2, 3]);
+const items = signal([0, 1, 2]);
 const minutes = clock.format("HH:mm");
 setInterval(() => minutes(), 60_000);
 (globalThis as any).__test = {
@@ -18,6 +18,12 @@ export default () => (
           <Box style={{ flexDirection: "row", gap: 4 }}>
             <Text>{clock.format("HH:mm:ss")}</Text>
             {() => items().map((item) => <Text>{String(item)}</Text>)}
+            <For each={items}>
+              {(item) => {
+                setInterval(() => {}, 60_000);
+                return <Text>{() => String(item())}</Text>;
+              }}
+            </For>
             <Image symbol="star" />
           </Box>
         </Surface>

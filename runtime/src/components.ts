@@ -3,6 +3,8 @@ import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "halo/e
 import { reportError } from "halo/host";
 import { native, type ScreenInfo } from "halo/native";
 import {
+  batch,
+  computed,
   effect,
   getOwner,
   onCleanup,
@@ -11,6 +13,7 @@ import {
   signal,
   untrack,
   type Accessor,
+  type Signal,
 } from "halo/reactive";
 
 /** A value, or a function returning it that is re-read when the signals it reads change. */
@@ -184,7 +187,10 @@ function toNodes(value: Element): NativeNode[] {
   });
 }
 
-/** Static children are inserted once; each function child is a slot re-rendered when what it reads changes. */
+/**
+ * Static children are inserted once; each function child is a slot re-rendered when what it reads changes.
+ * A slot only moves the nodes whose place changed, so nodes it gets back again (from `<For>`) stay put.
+ */
 function appendChildren(parent: NativeNode, children: Element): void {
   const sizes: number[] = [];
   for (const child of flatten(children)) {
@@ -200,13 +206,89 @@ function appendChildren(parent: NativeNode, children: Element): void {
     let current: NativeNode[] = [];
     effect(() => {
       const nodes = toNodes(child() as Element);
-      for (const node of current) native.detach(node.id);
+      const kept = new Set(nodes);
+      for (const node of current) if (!kept.has(node)) native.detach(node.id);
+      const placed = current.filter((node) => kept.has(node));
       const start = sizes.slice(0, slot).reduce((sum, size) => sum + size, 0);
-      nodes.forEach((node, offset) => native.insert(parent.id, node.id, start + offset));
+      nodes.forEach((node, index) => {
+        if (placed[index] === node) return;
+        const from = placed.indexOf(node);
+        if (from >= 0) placed.splice(from, 1);
+        placed.splice(index, 0, node);
+        native.insert(parent.id, node.id, start + index);
+      });
       sizes[slot] = nodes.length;
       current = nodes;
     });
   }
+}
+
+/** Props of `<For>`. */
+export interface ForProps<T> {
+  /** The list; usually a signal or computed. */
+  each: Reactive<readonly T[]>;
+  /** Identifies an item across updates (an id); defaults to the item itself. Keys must be unique. */
+  key?: (item: T, index: number) => unknown;
+  /** Called once per key. `item` and `index` update when that key's value or position changes. */
+  children: (item: Accessor<T>, index: Accessor<number>) => Element;
+}
+
+interface Row<T> {
+  item: Signal<T>;
+  index: Signal<number>;
+  nodes: NativeNode[];
+  dispose: () => void;
+}
+
+/**
+ * A keyed list: only new keys render, removed keys are disposed (playing their `exit`), and kept ones are
+ * reused and moved. Use it inside a `<Box>`, instead of `{() => items().map(...)}`.
+ */
+export function For<T>(props: ForProps<T>): Accessor<NativeNode[]> {
+  const owner = getOwner();
+  let rows = new Map<unknown, Row<T>>();
+  const render = (item: T, index: number) =>
+    runWithOwner(owner, () =>
+      root((dispose) => {
+        const row: Row<T> = {
+          item: signal(item),
+          index: signal(index),
+          nodes: [],
+          dispose,
+        };
+        try {
+          row.nodes = toNodes(props.children(row.item, row.index));
+        } catch (error) {
+          reportError(error);
+        }
+        return row;
+      }),
+    );
+  return computed(
+    () => {
+      const list = read(props.each);
+      return untrack(() =>
+        batch(() => {
+          const next = new Map<unknown, Row<T>>();
+          list.forEach((item, index) => {
+            const key = props.key ? props.key(item, index) : item;
+            if (next.has(key))
+              return reportError(new Error(`<For>: duplicate key ${String(key)}`));
+            const row = rows.get(key);
+            if (row) {
+              row.item.set(item);
+              row.index.set(index);
+            }
+            next.set(key, row ?? render(item, index));
+          });
+          for (const [key, row] of rows) if (!next.has(key)) row.dispose();
+          rows = next;
+          return [...next.values()].flatMap((row) => row.nodes);
+        }),
+      );
+    },
+    { equals: (a, b) => a.length === b.length && a.every((node, i) => node === b[i]) },
+  );
 }
 
 /** Props of `<Box>`. */

@@ -4,6 +4,7 @@
 
 import {
   Box,
+  For,
   Image,
   PerScreen,
   Surface,
@@ -92,14 +93,14 @@ function Showcase() {
       </Box>
 
       <Box style={{ flexDirection: "row", gap: 8, height: 32 }}>
-        {() =>
-          items().map((item) => (
+        <For each={items}>
+          {(item) => (
             <Box
               style={{
                 width: 52,
                 height: 32,
                 radius: 8,
-                background: palette[item % palette.length],
+                background: palette[item() % palette.length],
                 justify: "center",
                 align: "center",
                 transition: { layout: { duration: 300, curve: "ease-in-out" } },
@@ -108,11 +109,11 @@ function Showcase() {
               exit={{ to: { opacity: 0, translateY: -14 }, duration: 220 }}
             >
               <Text style={{ fontSize: 12, fontWeight: "semibold", color: "#1e1e2e" }}>
-                {String(item)}
+                {String(item())}
               </Text>
             </Box>
-          ))
-        }
+          )}
+        </For>
       </Box>
     </Box>
   );

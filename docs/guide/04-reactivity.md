@@ -25,6 +25,18 @@ setInterval(() => count.update((n) => n + 1), 1000);
 - In `<Text>`, only function children update: `{() => `WS ${ws()}`}`, not `WS {ws()}`.
 - A function child of a `<Box>` re-renders when what it reads changes: `{() => items().map(Row)}`.
 
+## Lists
+
+```tsx
+<For each={tasks} key={(task) => task.id}>
+  {(task, index) => <Text>{() => `${index() + 1}. ${task().title}`}</Text>}
+</For>
+```
+
+`<For>` renders each key once and keeps its nodes and state; when the list changes it only renders new keys, removes
+old ones (playing their `exit`) and moves the rest. `task` and `index` are signals that follow a kept key's value and
+position. `key` defaults to the item itself.
+
 ## Effects and cleanup
 
 ```tsx

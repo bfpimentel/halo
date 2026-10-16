@@ -43,20 +43,21 @@ private let right = ScreenInfo(id: 2, name: "Right", frame: CGRect(x: 1512, y: 0
 @MainActor
 @Suite(.enabled(if: (try? Bundler.locate()) != nil, "needs esbuild"))
 struct LifecycleTests {
-    /// Per screen: root box, clock text, 3 item texts, image = 6 nodes; 1 surface; 1 interval.
+    /// Per screen: root box, clock text, 3 mapped item texts, 3 `<For>` rows, image = 9 nodes; 1 surface;
+    /// 1 interval plus one per `<For>` row.
     /// Shared: the seconds ticker, plus module-level code's minute ticker and interval.
     @Test func configCleanupsReleaseEverythingTheyCreated() throws {
         let script = try Bundler.locate().build(configDirectory: fixture)
         let backend = FakeBackend()
         let runtime = Runtime(backend: backend, screens: [left, right])
         runtime.evaluate(script)
-        #expect(runtime.counts == Runtime.Counts(nodes: 12, surfaces: 2, timers: 5))
+        #expect(runtime.counts == Runtime.Counts(nodes: 18, surfaces: 2, timers: 11))
 
         runtime.context.evaluateScript("__test.setItems(1)")
-        #expect(runtime.counts.nodes == 8)
+        #expect(runtime.counts == Runtime.Counts(nodes: 10, surfaces: 2, timers: 7))
 
         runtime.screensChanged([left])
-        #expect(runtime.counts == Runtime.Counts(nodes: 4, surfaces: 1, timers: 4))
+        #expect(runtime.counts == Runtime.Counts(nodes: 5, surfaces: 1, timers: 5))
         #expect(backend.liveSurfaces == 1)
 
         #expect(runtime.dispose() == .zero)

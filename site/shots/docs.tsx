@@ -3,6 +3,7 @@
 
 import {
   Box,
+  For,
   Image,
   Input,
   Shape,
@@ -499,30 +500,27 @@ function Curves() {
 }
 
 function EnterExit() {
-  // One reactive slot per row, each reading its own computed, so only the row that changes animates (a single
-  // `items().map(...)` slot would rebuild, and so exit and re-enter, every row).
   const count = signal(0);
   every(700, (tick) => {
     const step = tick % 10;
     count.set(step <= 4 ? step : 9 - step);
   });
+  const notifications = computed(() => [1, 2, 3, 4].slice(0, count()));
   return (
     <Box style={{ gap: 6, width: 240, height: 168 }}>
-      {[1, 2, 3, 4].map((n) => {
-        const shown = computed(() => count() >= n);
-        return () =>
-          shown() ? (
-            <Box
-              enter={{ from: { opacity: 0, translateX: -20 }, curve: "spring" }}
-              exit={{ to: { opacity: 0, scale: 0.9 }, duration: 180 }}
-              style={{ padding: [8, 12], background: card, radius: 8 }}
-            >
-              <Text
-                style={{ fontSize: 13, color: foreground }}
-              >{`Notification ${n}`}</Text>
-            </Box>
-          ) : null;
-      })}
+      <For each={notifications}>
+        {(n) => (
+          <Box
+            enter={{ from: { opacity: 0, translateX: -20 }, curve: "spring" }}
+            exit={{ to: { opacity: 0, scale: 0.9 }, duration: 180 }}
+            style={{ padding: [8, 12], background: card, radius: 8 }}
+          >
+            <Text
+              style={{ fontSize: 13, color: foreground }}
+            >{`Notification ${n()}`}</Text>
+          </Box>
+        )}
+      </For>
     </Box>
   );
 }

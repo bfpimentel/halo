@@ -45,14 +45,13 @@ the exit.
 
 <video src="../assets/enter-exit.mp4" autoplay loop muted playsinline aria-label="Notifications entering and leaving one at a time"></video>
 
-In a list, give each item its own slot so only the item that changes animates: a single `{() => items().map(…)}`
-rebuilds, and so re-enters, every row.
+In a list, use `<For>` so only the items that come and go animate; a plain `{() => items().map(…)}` rebuilds, and
+so re-enters, every row.
 
 ```tsx
-{ids.map((id) => {
-  const shown = computed(() => visible().includes(id));
-  return () => (shown() ? <Row id={id} enter={…} exit={…} /> : null);
-})}
+<For each={notifications} key={(n) => n.id}>
+  {(n) => <Row title={n().title} enter={…} exit={…} />}
+</For>
 ```
 
 ## Keyframes

@@ -1,5 +1,6 @@
 export {
   Box,
+  For,
   Image,
   Input,
   PerScreen,
@@ -12,6 +13,7 @@ export {
 export type {
   Attachment,
   BoxProps,
+  ForProps,
   ImageProps,
   InputProps,
   PerScreenProps,
