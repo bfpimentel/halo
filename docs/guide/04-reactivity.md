@@ -30,7 +30,7 @@ effect(() => console.log("now", count()));
 onCleanup(() => console.log("widget removed"));
 ```
 
-Effects, timers and `poll` started in a component stop when it goes away or the config reloads. `batch()` groups
+Effects, timers, `poll`, `watchFile` and `spawn` started in a component stop when it goes away or the config reloads. `batch()` groups
 writes into one update.
 
 ## Getting data
@@ -41,6 +41,27 @@ writes into one update.
 | `battery`, `audio`, `network`, `frontApp`, `system` | System state ([guide](services.html)).                           |
 | `sh("cmd")`, `exec(…)`                              | Run a command once; resolves with its output.                    |
 | `poll("cmd", 5000)`                                 | A signal of a command's output, refreshed on an interval.        |
+| `spawn("cmd", args, { onLine })`                    | A long-running program's output, line by line.                   |
+| `readFile`, `writeFile`, `watchFile`                | Files: read once, save, or follow as a signal.                   |
 | `externalSignal("name")`                            | State pushed by `halo trigger` ([guide](external-signals.html)). |
+
+## Files and processes
+
+```tsx
+import { readFile, spawn, watchFile, writeFile } from "halo";
+
+const note = watchFile("~/notes/today.md"); // undefined while missing; follows saves and deletes
+const saved = await readFile("~/.cache/my-bar/state.json"); // rejects if missing
+writeFile("~/.cache/my-bar/state.json", JSON.stringify(state)); // atomic, creates folders
+
+spawn("/sbin/ping", ["-i", "2", "1.1.1.1"], {
+  onLine: (line) => latency.set(Number(line.match(/time=([\d.]+)/)?.[1])),
+});
+```
+
+- `~` is your home folder; relative paths start at the config folder.
+- Keep state outside the config folder: writes there reload the config.
+- `spawn` takes a program and arguments, no shell (use `"/bin/sh", ["-c", "…"]` for one). Stopping it, by hand or
+  with its owner, also stops anything it started. Unhandled stderr goes to `halo log`.
 
 Reference: [`halo/signals`](../reference/halo-signals.html), [`halo/services`](../reference/halo-services.html).

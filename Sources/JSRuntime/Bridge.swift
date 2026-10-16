@@ -55,6 +55,24 @@ enum Bridge {
         let exec: @convention(block) (String, [String], JSValue) -> Void = { command, arguments, callback in
             MainActor.assumeIsolated { runtime?.exec(command, arguments, callback) }
         }
+        let readFile: @convention(block) (String, JSValue) -> Void = { path, callback in
+            MainActor.assumeIsolated { runtime?.readFile(path, callback) }
+        }
+        let writeFile: @convention(block) (String, String, JSValue) -> Void = { path, text, callback in
+            MainActor.assumeIsolated { runtime?.writeFile(path, text, callback) }
+        }
+        let watchFile: @convention(block) (String, JSValue) -> Int = { path, callback in
+            MainActor.assumeIsolated { runtime?.watchFile(path, callback) ?? 0 }
+        }
+        let unwatchFile: @convention(block) (Int) -> Void = { id in
+            MainActor.assumeIsolated { runtime?.unwatchFile(id) }
+        }
+        let spawn: @convention(block) (String, [String], JSValue, JSValue) -> Int = { command, arguments, onLines, onExit in
+            MainActor.assumeIsolated { runtime?.spawn(command, arguments, onLines, onExit) ?? 0 }
+        }
+        let kill: @convention(block) (Int) -> Void = { id in
+            MainActor.assumeIsolated { runtime?.kill(id) }
+        }
         let lastEvent: @convention(block) (String) -> JSValue? = { name in
             nonisolated(unsafe) var payload: [String: String]?
             MainActor.assumeIsolated { payload = runtime?.lastEvent(name) }
@@ -108,6 +126,12 @@ enum Bridge {
         define("setTimer", setTimer)
         define("clearTimer", clearTimer)
         define("exec", exec)
+        define("readFile", readFile)
+        define("writeFile", writeFile)
+        define("watchFile", watchFile)
+        define("unwatchFile", unwatchFile)
+        define("spawn", spawn)
+        define("kill", kill)
         define("lastEvent", lastEvent)
         define("listen", listen)
         define("setVisibility", setVisibility)

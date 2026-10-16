@@ -41,6 +41,19 @@ export interface Native {
   setTimer(ms: number, repeats: boolean, fn: () => void): number;
   clearTimer(id: number): void;
   exec(command: string, args: string[], done: (result: ExecResult) => void): void;
+  readFile(path: string, done: (text: string | null, error: string | null) => void): void;
+  writeFile(path: string, text: string, done: (error: string | null) => void): void;
+  /** Calls `onChange` now and whenever the contents change (null while the file doesn't exist). */
+  watchFile(path: string, onChange: (text: string | null) => void): number;
+  unwatchFile(id: number): void;
+  /** Returns 0 if it couldn't start (`onExit` already got -1 and the reason). */
+  spawn(
+    command: string,
+    args: string[],
+    onLines: (stream: "out" | "err", lines: string[]) => void,
+    onExit: (code: number, error: string | null) => void,
+  ): number;
+  kill(id: number): void;
   formatDate(pattern: string, epochMs: number): string;
   /** Starts or stops native delivery of `kind` events for a node or surface id. */
   listen(id: number, kind: string, enabled: boolean): void;

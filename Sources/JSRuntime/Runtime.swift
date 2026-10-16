@@ -24,10 +24,14 @@ public final class Runtime {
         public var surfaces = 0
         public var timers = 0
         public var services = 0
+        public var watchers = 0
+        public var processes = 0
 
         public static let zero = Counts()
 
-        public var description: String { "\(nodes) nodes, \(surfaces) surfaces, \(timers) timers, \(services) services" }
+        public var description: String {
+            "\(nodes) nodes, \(surfaces) surfaces, \(timers) timers, \(services) services, \(watchers) watchers, \(processes) processes"
+        }
     }
 
     final class SurfaceEntry {
@@ -69,6 +73,11 @@ public final class Runtime {
     public var serviceFactory: @MainActor (String, [String: Any]) -> Service? = { Services.make($0, options: $1) }
     var frameSubscribers: Set<Int> = []
     var frameLink: CADisplayLink?
+    /// Where relative file paths start; nil in tests that load from strings.
+    let configDirectory: URL?
+    var fileWatchers: [Int: FileWatcher] = [:]
+    var pendingFileCallbacks: [Int: JSValue] = [:]
+    var spawned: [Int: Spawned] = [:]
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
     private var processes: [Int: (process: Process, callback: JSValue)] = [:]
     private var formatters: [String: DateFormatter] = [:]
@@ -81,15 +90,17 @@ public final class Runtime {
     public var counts: Counts {
         Counts(
             nodes: nodes.count, surfaces: surfaces.count, timers: timers.count + frameSubscribers.count,
-            services: serviceSubscriptions.count
+            services: serviceSubscriptions.count, watchers: fileWatchers.count, processes: spawned.count
         )
     }
 
     /// `events` holds the latest payload per external event name, so a fresh load starts from known state.
     public init(
-        backend: CompositorBackend, screens: [ScreenInfo], events: [String: [String: String]] = [:], host: RuntimeHost? = nil
+        backend: CompositorBackend, screens: [ScreenInfo], events: [String: [String: String]] = [:], host: RuntimeHost? = nil,
+        configDirectory: URL? = nil
     ) {
         self.backend = backend
+        self.configDirectory = configDirectory
         self.screens = screens
         self.host = host
         lastEvents = events
@@ -172,6 +183,8 @@ public final class Runtime {
         timers.removeAll()
         for (process, _) in processes.values where process.isRunning { process.terminate() }
         processes.removeAll()
+        killSpawned()
+        stopFileWatchers()
         stopMouseMonitors()
         stopPointerMonitors()
         stopServices()

@@ -27,7 +27,8 @@ export type {
 } from "halo/components";
 export { hide, show, toggle } from "halo/events";
 export type { ClickEvent, KeyEvent, ScrollEvent } from "halo/events";
-export { exec, poll, sh } from "halo/host";
+export { exec, poll, readFile, sh, spawn, watchFile, writeFile } from "halo/host";
+export type { SpawnOptions, Spawned } from "halo/host";
 export { animate, onFrame, tween } from "halo/animation";
 export type {
   Animatable,

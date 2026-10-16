@@ -202,7 +202,10 @@ extension Runtime {
                 "root": describe(entry.root.node),
             ]
         }
-        return ["surfaces": list, "counts": ["nodes": counts.nodes, "surfaces": counts.surfaces, "timers": counts.timers]]
+        return ["surfaces": list, "counts": [
+            "nodes": counts.nodes, "surfaces": counts.surfaces, "timers": counts.timers, "services": counts.services,
+            "watchers": counts.watchers, "processes": counts.processes,
+        ]]
     }
 
     private func describe(_ node: Node) -> [String: Any] {

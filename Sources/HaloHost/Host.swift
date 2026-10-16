@@ -46,7 +46,7 @@ final class Host {
 
         errors.dismiss()
         disposeRuntime()
-        let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), events: lastEvents, host: self)
+        let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), events: lastEvents, host: self, configDirectory: configDirectory)
         runtime = next
         next.evaluate(script) { [bundler, configDirectory] in bundler.displayName(forSource: $0, configDirectory: configDirectory) }
         Log.info("loaded \(configDirectory.path) in \(Int(Date().timeIntervalSince(started) * 1000)) ms (\(next.counts))")
