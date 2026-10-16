@@ -40,7 +40,7 @@ The release workflow pins each release itself: after publishing, it runs `script
 
 ## Cutting a release
 
-1. Bump `IPC.version` in `Sources/IPC/Protocol.swift`, commit, tag `vX.Y.Z` and push the tag. The workflow builds the zip, publishes the GitHub release and commits the Nix pin to `main`. Pull afterwards.
+1. On an up-to-date, clean `main`, run `scripts/release.sh X.Y.Z --push`. It bumps `IPC.version` (`Sources/IPC/Protocol.swift`, which `scripts/package.sh` checks against the tag) and the version placeholders in the issue and discussion forms, commits `chore: release vX.Y.Z`, tags it and pushes both. Without `--push` it stops after tagging. The workflow then builds the zip, publishes the GitHub release and commits the Nix pin to `main`. Pull afterwards.
 2. For Homebrew, get the source tarball checksum:
    ```bash
    curl -sL https://github.com/bfpimentel/halo/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
@@ -51,6 +51,13 @@ The release workflow pins each release itself: after publishing, it runs `script
    sha256 "<checksum>"
    ```
 4. Commit the formula change. Users then get the new version with `brew update && brew upgrade halo`.
+
+If a tag was pushed without the bump, the workflow fails before publishing. Delete the tag and run the script again:
+
+```bash
+git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z
+scripts/release.sh X.Y.Z --push
+```
 
 ## Checking the packages
 
