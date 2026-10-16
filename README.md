@@ -18,8 +18,9 @@
 ## Install
 
 ```bash
-brew tap bfpimentel/halo https://github.com/bfpimentel/halo
-brew install --HEAD halo
+brew tap bfpimentel/tap
+brew trust --formula bfpimentel/tap/halo   # Homebrew 6+: third-party taps need explicit trust
+brew install halo
 halo init     # ~/.config/halo with a starter widget and editor types
 halo start
 ```

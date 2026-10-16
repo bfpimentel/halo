@@ -2,21 +2,27 @@
 
 halo ships two ways:
 
-- **Homebrew**: a formula in this repository that builds from source.
+- **Homebrew**: a formula in [bfpimentel/homebrew-tap](https://github.com/bfpimentel/homebrew-tap) that builds from source.
 - **Nix**: a flake that installs the prebuilt release zip.
 
 The zip comes from the release workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)), which runs [`scripts/package.sh`](../scripts/package.sh) on every `v*` tag. The script builds a universal binary and writes `halo-<version>-macos.zip`. The zip contains `bin/halo`, `share/halo/runtime/src`, `share/halo/examples` and `LICENSE`.
 
 ## Homebrew
 
-The formula lives at [`Formula/halo.rb`](../Formula/halo.rb), so the repository is its own tap:
+The formula is `Formula/halo.rb` in [bfpimentel/homebrew-tap](https://github.com/bfpimentel/homebrew-tap):
 
 ```bash
-brew tap bfpimentel/halo https://github.com/bfpimentel/halo
-brew install --HEAD halo     # before the first tagged release
-brew install halo            # once the formula has a stable url
-brew services start halo     # launch at login (LaunchAgent running `halo start`)
+brew tap bfpimentel/tap
+brew trust --formula bfpimentel/tap/halo  # Homebrew 6+ requires trusting third-party taps or formulae
+brew install halo                         # latest release
+brew install --HEAD halo                  # main
+brew services start halo                  # launch at login (LaunchAgent running `halo start`)
 ```
+
+The release workflow keeps it current. It checks first that the `HOMEBREW_TAP_TOKEN` secret (a token with Contents
+read/write on the tap) is set and that the tap has `Formula/halo.rb`, so a misconfigured tap fails before building.
+After publishing, it points the formula's `url` at the new tag's source tarball, sets its `sha256`, and pushes
+`halo X.Y.Z` to the tap with plain git.
 
 ### What the formula installs
 
@@ -40,17 +46,7 @@ The release workflow pins each release itself: after publishing, it runs `script
 
 ## Cutting a release
 
-1. On an up-to-date, clean `main`, run `scripts/release.sh X.Y.Z --push`. It bumps `IPC.version` (`Sources/IPC/Protocol.swift`, which `scripts/package.sh` checks against the tag) and the version placeholders in the issue and discussion forms, commits `chore: release vX.Y.Z`, tags it and pushes both. Without `--push` it stops after tagging. The workflow then builds the zip, publishes the GitHub release and commits the Nix pin to `main`. Pull afterwards.
-2. For Homebrew, get the source tarball checksum:
-   ```bash
-   curl -sL https://github.com/bfpimentel/halo/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
-   ```
-3. Add this to the formula, above `head`:
-   ```ruby
-   url "https://github.com/bfpimentel/halo/archive/refs/tags/vX.Y.Z.tar.gz"
-   sha256 "<checksum>"
-   ```
-4. Commit the formula change. Users then get the new version with `brew update && brew upgrade halo`.
+1. On an up-to-date, clean `main`, run `scripts/release.sh X.Y.Z --push`. It bumps `IPC.version` (`Sources/IPC/Protocol.swift`, which `scripts/package.sh` checks against the tag) and the version placeholders in the issue and discussion forms, commits `chore: release vX.Y.Z`, tags it and pushes both. Without `--push` it stops after tagging. The workflow then builds the zip, publishes the GitHub release, updates the Homebrew formula in the tap and commits the Nix pin to `main`. Pull afterwards.
 
 If a tag was pushed without the bump, the workflow fails before publishing. Delete the tag and run the script again:
 
@@ -63,12 +59,12 @@ scripts/release.sh X.Y.Z --push
 
 Build the zip locally with `scripts/package.sh`. To test the Nix package against a local zip, serve `dist/` over HTTP, because the build sandbox can't read your home directory. Then build `nix/package.nix` with `release.url` set to that URL.
 
-To check the formula, run these on a Mac with Homebrew, from the tapped repo:
+To check the formula, run these on a Mac with Homebrew, with the tap installed and the formula trusted (see above):
 
 ```bash
-brew install --build-from-source --HEAD halo
-brew test halo
-brew audit --strict halo
+brew install --build-from-source bfpimentel/tap/halo
+brew test bfpimentel/tap/halo
+brew audit --strict bfpimentel/tap/halo
 ```
 
 The build needs Xcode 16+ (Swift 6 tools) and fetches the pinned Yoga package through SwiftPM.

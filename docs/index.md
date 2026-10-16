@@ -16,8 +16,9 @@
 ## Install
 
 ```bash
-brew tap bfpimentel/halo https://github.com/bfpimentel/halo
-brew install --HEAD halo
+brew tap bfpimentel/tap
+brew trust --formula bfpimentel/tap/halo   # Homebrew 6+: third-party taps need explicit trust
+brew install halo
 ```
 
 Nix: `inputs.halo.url = "github:bfpimentel/halo"` with `services.halo.enable = true` (nix-darwin or home-manager). [Full setup](guide/getting-started.html#nix).

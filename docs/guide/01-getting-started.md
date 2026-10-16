@@ -4,11 +4,13 @@
 
 ### Homebrew
 
-Builds from source and needs Xcode 16+:
+Builds from source and needs Xcode 16+. Homebrew loads code only from taps you trust, so trust the halo formula once
+([Tap Trust](https://docs.brew.sh/Tap-Trust)):
 
 ```bash
-brew tap bfpimentel/halo https://github.com/bfpimentel/halo
-brew install --HEAD halo
+brew tap bfpimentel/tap
+brew trust --formula bfpimentel/tap/halo   # Homebrew 6+: third-party taps need explicit trust
+brew install halo
 ```
 
 ### Nix

@@ -13,6 +13,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::error::Set HOMEBREW_TAP_TOKEN with Contents: read/write on bfpimentel/homebrew-tap."
+            exit 1
+          fi
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/bfpimentel/homebrew-tap.git" "$RUNNER_TEMP/tap"
+          if [ ! -f "$RUNNER_TEMP/tap/Formula/halo.rb" ]; then
+            echo "::error::Commit Formula/halo.rb to bfpimentel/homebrew-tap first."
+            exit 1
+          fi
+
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
@@ -31,7 +45,41 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" "${{ steps.package.outputs.zip }}" \
             --title "halo ${{ steps.package.outputs.version }}" \
-            --notes "Universal (arm64 + x86_64) build of halo ${{ steps.package.outputs.version }}."
+            --notes "Universal (arm64 + x86_64) build of halo ${{ steps.package.outputs.version }}.
+
+          Homebrew:
+
+          \`\`\`sh
+          brew tap bfpimentel/tap
+          brew trust --formula bfpimentel/tap/halo
+          brew install halo   # or: brew upgrade halo
+          \`\`\`
+
+          Nix: \`nix flake update halo\`, then rebuild."
+
+      - name: Update the Homebrew formula
+        run: |
+          version="${{ steps.package.outputs.version }}"
+          url="https://github.com/bfpimentel/halo/archive/refs/tags/v${version}.tar.gz"
+          sha="$(curl -fsSL --retry 3 "$url" | shasum -a 256 | cut -d' ' -f1)"
+          formula="$RUNNER_TEMP/tap/Formula/halo.rb"
+          sed -i '' -E "s|^  url \".*\"|  url \"${url}\"|" "$formula"
+          sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${sha}\"|" "$formula"
+          grep -q "  url \"${url}\"" "$formula" && grep -q "  sha256 \"${sha}\"" "$formula" || {
+            echo "::error::Couldn't update url/sha256 in Formula/halo.rb"
+            exit 1
+          }
+          cd "$RUNNER_TEMP/tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/halo.rb
+          if git diff --cached --quiet; then
+            echo "Formula/halo.rb already at $version" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git commit -m "halo ${version}"
+            git push
+            echo "Updated bfpimentel/homebrew-tap Formula/halo.rb to $version" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Pin the release in the Nix flake
         run: |
