@@ -27,9 +27,18 @@ private final class Panel: NSPanel {
 }
 
 /// AppKit owns the flip state of a view's backing layer; a flipped view is the supported way to get top-left sublayers.
-private final class ContentView: NSView {
+private final class ContentView: NSView, NSDraggingSource {
     weak var surface: PanelSurface?
     private var tracking: NSTrackingArea?
+    /// The latest mouse-down or drag event: a drag session has to start from one.
+    private(set) var lastMouseEvent: NSEvent?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -51,7 +60,15 @@ private final class ContentView: NSView {
         convert(event.locationInWindow, from: nil)
     }
 
-    override func mouseDown(with event: NSEvent) { surface?.emit(.mouseDown(local(event), button: 0)) }
+    override func mouseDown(with event: NSEvent) {
+        lastMouseEvent = event
+        surface?.emit(.mouseDown(local(event), button: 0))
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        lastMouseEvent = event
+        surface?.emit(.mouseDragged(local(event)))
+    }
     override func rightMouseDown(with event: NSEvent) { surface?.emit(.mouseDown(local(event), button: 1)) }
     override func mouseUp(with event: NSEvent) { surface?.emit(.mouseUp(local(event), button: 0, clickCount: event.clickCount)) }
     override func rightMouseUp(with event: NSEvent) { surface?.emit(.mouseUp(local(event), button: 1, clickCount: event.clickCount)) }
@@ -65,6 +82,50 @@ private final class ContentView: NSView {
     override func keyDown(with event: NSEvent) {
         guard surface?.onKey?(KeyEvent(event)) == true else { return super.keyDown(with: event) }
     }
+
+    // MARK: Drop destination (file URLs only; paths are handed over, nothing is read or copied)
+
+    private func files(_ info: NSDraggingInfo) -> [String] {
+        let urls = info.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL] ?? []
+        return urls.map(\.path)
+    }
+
+    private func over(_ info: NSDraggingInfo) -> NSDragOperation {
+        let point = convert(info.draggingLocation, from: nil)
+        return surface?.onDrag?(.over(point, files: files(info))) == true ? .copy : []
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { over(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { over(sender) }
+    override func draggingExited(_ sender: NSDraggingInfo?) { _ = surface?.onDrag?(.exited) }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { true }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let point = convert(sender.draggingLocation, from: nil)
+        return surface?.onDrag?(.drop(point, files: files(sender))) == true
+    }
+
+    // MARK: Drag source
+
+    /// Files leave as real file URLs: the receiver (usually Finder) moves or copies them as it would its own.
+    func beginDrag(files: [String]) {
+        guard let event = lastMouseEvent, !files.isEmpty else { return }
+        let start = convert(event.locationInWindow, from: nil)
+        let items = files.enumerated().map { index, path in
+            let item = NSDraggingItem(pasteboardWriter: URL(fileURLWithPath: path) as NSURL)
+            let icon = NSWorkspace.shared.icon(forFile: path)
+            let offset = CGFloat(index) * 6
+            item.setDraggingFrame(CGRect(x: start.x - 24 + offset, y: start.y - 24 - offset, width: 48, height: 48), contents: icon)
+            return item
+        }
+        beginDraggingSession(with: items, event: event, source: self)
+    }
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .outsideApplication ? [.copy, .move, .link, .generic] : []
+    }
 }
 
 @MainActor
@@ -75,6 +136,7 @@ final class PanelSurface: BackendSurface {
     let rootLayer = CALayer()
     var onEvent: ((SurfaceEvent) -> Void)?
     var onKey: ((KeyEvent) -> Bool)?
+    var onDrag: ((DragEvent) -> Bool)?
 
     init() {
         panel = Panel(
@@ -155,6 +217,10 @@ final class PanelSurface: BackendSurface {
         guard panel.acceptsKey, panel.isVisible else { return }
         panel.makeKeyAndOrderFront(nil)
         if panel.firstResponder == nil || panel.firstResponder === panel { panel.makeFirstResponder(view) }
+    }
+
+    func beginDrag(files: [String]) {
+        view.beginDrag(files: files)
     }
 
     func attach(_ view: NSView) {

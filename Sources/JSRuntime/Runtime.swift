@@ -45,6 +45,10 @@ public final class Runtime {
         var placedContentSize: CGSize?
         var mouseTransparent = false
         var pressed: Int?
+        /// The draggable node under the last mouse-down and where it went down.
+        var dragOrigin: (CGPoint, Int)?
+        /// The node receiving dragEnter/dragLeave for a file drag over this surface.
+        var dragTarget: Int?
         var hovered: Set<Int> = []
 
         init(id: Int, surface: Surface, root: RenderRoot, config: SurfaceConfig, options: Conversions.SurfaceOptions) {
@@ -78,6 +82,8 @@ public final class Runtime {
     var fileWatchers: [Int: FileWatcher] = [:]
     var pendingFileCallbacks: [Int: JSValue] = [:]
     var spawned: [Int: Spawned] = [:]
+    var draggables: [Int: [String]] = [:]
+    var ownDragTimer: Timer?
     private var timers: [Int: (timer: Timer, callback: JSValue, repeats: Bool)] = [:]
     private var processes: [Int: (process: Process, callback: JSValue)] = [:]
     private var formatters: [String: DateFormatter] = [:]
@@ -184,6 +190,8 @@ public final class Runtime {
         for (process, _) in processes.values where process.isRunning { process.terminate() }
         processes.removeAll()
         killSpawned()
+        ownDragTimer?.invalidate()
+        ownDragTimer = nil
         stopFileWatchers()
         stopMouseMonitors()
         stopPointerMonitors()
@@ -265,6 +273,11 @@ public final class Runtime {
         entry.shown = config.visible
         if changed { updatePointerMonitors() }
         guard appeared else { return }
+        // A surface that shows up catches the pointer until the next pointer check says otherwise: a stale
+        // click-through state must never let a fresh drop zone pass a drop to the app underneath.
+        entry.mouseTransparent = false
+        entry.surface.setMouseTransparent(false)
+        pointerMoved()
         if let enter = entry.options.enter {
             entry.root.layoutNow()
             entry.root.node.play(enter: enter)
@@ -349,6 +362,7 @@ extension Runtime {
 
     func setProp(_ id: Int, _ key: String, _ value: JSValue) {
         guard let node = nodes[id] else { return }
+        if key == "draggable" { return setDraggable(id, value) }
         Conversions.applyProp(key, value, to: node)
     }
 
@@ -366,6 +380,7 @@ extension Runtime {
         guard let node = nodes.removeValue(forKey: id) else { return }
         nodeIDs[ObjectIdentifier(node)] = nil
         listeners[id] = nil
+        draggables[id] = nil
         node.remove()
     }
 

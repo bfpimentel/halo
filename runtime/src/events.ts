@@ -50,6 +50,13 @@ export interface ClickEvent {
   clicks: number;
 }
 
+/** Passed to `onDragEnter` and `onDrop`: the dragged files' paths (nothing is copied) and the surface-local point. */
+export interface DropEvent {
+  files: string[];
+  x: number;
+  y: number;
+}
+
 /** Passed to `onScroll`, in points. */
 export interface ScrollEvent {
   dx: number;

@@ -18,6 +18,11 @@ public final class Surface {
         set { backing.onKey = newValue }
     }
 
+    public var onDrag: ((DragEvent) -> Bool)? {
+        get { backing.onDrag }
+        set { backing.onDrag = newValue }
+    }
+
     public init(config: SurfaceConfig, screen: ScreenInfo, backend: CompositorBackend) {
         self.config = config
         backing = backend.makeSurface()
@@ -52,6 +57,10 @@ public final class Surface {
 
     public func attach(_ view: NSView) {
         backing.attach(view)
+    }
+
+    public func beginDrag(files: [String]) {
+        backing.beginDrag(files: files)
     }
 
     public func destroy() {

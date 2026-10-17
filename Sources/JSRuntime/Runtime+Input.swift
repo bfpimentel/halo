@@ -36,6 +36,10 @@ extension Runtime {
             guard let self, let entry else { return }
             self.handle(event, on: entry)
         }
+        entry.surface.onDrag = { [weak self, weak entry] event in
+            guard let self, let entry else { return false }
+            return self.handleDrag(event, on: entry)
+        }
         entry.surface.onKey = { [weak self, weak entry] key in
             guard let self, let entry else { return false }
             return self.dispatch(entry.id, "key", Self.payload(key))
@@ -45,10 +49,16 @@ extension Runtime {
     private func handle(_ event: SurfaceEvent, on entry: SurfaceEntry) {
         let receivesClicks = entry.config.input == .interactive || entry.config.input == .keyboard
         switch event {
-        case .mouseDown(let point, _):
+        case .mouseDown(let point, let button):
             entry.pressed = receivesClicks ? firstListener("click", at: point, in: entry) : nil
+            if receivesClicks, button == 0 { armDrag(at: point, in: entry) }
+        case .mouseDragged(let point):
+            continueDrag(at: point, in: entry)
         case .mouseUp(let point, let button, let clicks):
-            defer { entry.pressed = nil }
+            defer {
+                entry.pressed = nil
+                entry.dragOrigin = nil
+            }
             guard let target = firstListener("click", at: point, in: entry), target == entry.pressed else { return }
             dispatch(target, "click", ["x": point.x, "y": point.y, "button": button == 1 ? "right" : "left", "clicks": clicks])
         case .mouseMoved(let point):
@@ -284,9 +294,10 @@ extension Runtime {
         updateHover(Set(ids.filter { listeners[$0]?.contains("hover") == true }), in: entry)
     }
 
+    /// Painted nodes, draggable ones and ones with listeners (drop zones included) catch the pointer.
     func isSolid(_ entry: SurfaceEntry, at point: CGPoint) -> Bool {
         entry.root.hitPath(at: point).contains { node in
-            node.paintsContent || nodeIDs[ObjectIdentifier(node)].map { listeners[$0] != nil } == true
+            node.paintsContent || nodeIDs[ObjectIdentifier(node)].map { listeners[$0] != nil || draggables[$0] != nil } == true
         }
     }
 }

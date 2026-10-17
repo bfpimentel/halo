@@ -292,3 +292,14 @@ export const session: Session = {
   displaysAsleep: () => read<SessionState>("session")?.displaysAsleep,
   lastWake: () => read<SessionState>("session")?.lastWake ?? undefined,
 };
+
+/** File drags anywhere on screen. Every value is reactive. */
+export interface Drag {
+  /** Files are being dragged right now, from Finder or any app. Show a drop zone while it's true. */
+  active(): boolean;
+}
+
+/** File drags in progress, from mouse events and the drag pasteboard's type (its contents are never read). */
+export const drag: Drag = {
+  active: () => read<{ active: boolean }>("drag")?.active ?? false,
+};

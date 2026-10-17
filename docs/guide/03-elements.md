@@ -139,6 +139,46 @@ listens for it. The surface needs `input="interactive"` (or `hover` for hover an
 
 Here `onHover` and `onClick` set signals that drive `background` and `scale`, each with a `transition`.
 
+## Drag and drop
+
+Files in and out. You get paths; nothing is copied.
+
+```tsx
+import { drag } from "halo/services";
+
+const shelf = signal<string[]>([]);
+
+<Surface
+  screen={screen}
+  anchor={["top"]}
+  input="interactive"
+  visible={() => drag.active() || shelf().length > 0}
+>
+  <Box
+    onDragEnter={() => over.set(true)}
+    onDragLeave={() => over.set(false)}
+    onDrop={({ files }) => shelf.update((list) => [...list, ...files])}
+  >
+    <For each={shelf} key={(path) => path}>
+      {(path) => <Image app={path} size={40} draggable={() => ({ files: [path()] })} />}
+    </For>
+  </Box>
+</Surface>;
+```
+
+| Prop / signal                | Does                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| `onDragEnter`, `onDragLeave` | Files dragged over the element, then away: highlight the zone                       |
+| `onDrop`                     | `{ files, x, y }`: the dropped paths                                                |
+| `draggable={{ files }}`      | Dragging the element out hands over the files; Finder moves or copies them as usual |
+| `drag.active()`              | Files are being dragged anywhere: show drop zones only then                         |
+
+- Only drags of files that exist on disk count (Finder, editors that drag their files). File promises (library items from
+  Photos or video editors) and dragged text or web images don't trigger anything.
+- Drop zones catch the pointer like any element with a listener. Keep them hidden until `drag.active()`, so they never
+  sit over other apps.
+- The surface needs `input="interactive"` (or `hover` for drops only).
+
 ## Refs
 
 `ref={(node) => …}` hands out the element, for popups (`attach`), `focus()` and `animate()`.

@@ -6,7 +6,16 @@ System state as signals, from `halo/services`. A service runs only while somethi
 ![A status strip](../assets/status.png)
 
 ```tsx
-import { audio, battery, frontApp, network, power, session, system } from "halo/services";
+import {
+  audio,
+  battery,
+  drag,
+  frontApp,
+  network,
+  power,
+  session,
+  system,
+} from "halo/services";
 
 <Text>
   {() => `${battery.percent()}% · ${Math.round((system.cpu() ?? 0) * 100)}% CPU`}
@@ -21,6 +30,7 @@ import { audio, battery, frontApp, network, power, session, system } from "halo/
 | `frontApp` | `name`, `bundleId`, `pid`                                                       | on app switch              |
 | `power`    | `lowPowerMode`, `thermal` (`nominal`, `fair`, `serious`, `critical`)            | on change                  |
 | `session`  | `locked`, `displaysAsleep`, `lastWake` (ms; changes on every wake)              | on change                  |
+| `drag`     | `active` (files are being dragged anywhere)                                     | while the button is held   |
 | `system`   | `cpu(ms?)`, `memory(ms?)`, `memoryUsed`, `memoryTotal`                          | every `ms` (default 2000)  |
 | `clock`    | `format(pattern)`                                                               | every minute or second     |
 

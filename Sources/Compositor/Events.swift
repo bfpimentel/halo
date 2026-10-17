@@ -25,7 +25,17 @@ public enum SurfaceEvent: Sendable {
     case mouseDown(CGPoint, button: Int)
     case mouseUp(CGPoint, button: Int, clickCount: Int)
     case mouseMoved(CGPoint)
+    /// The left button moved while held down (drag sources start here).
+    case mouseDragged(CGPoint)
     case mouseExited
     case scroll(CGPoint, dx: CGFloat, dy: CGFloat)
     case focusChanged(Bool)
+}
+
+/// Files dragged over a surface, from Finder or any app. Paths only: nothing is copied. Points are surface-local,
+/// top-left origin. The handler returns whether it accepts a drop at that point.
+public enum DragEvent: Sendable {
+    case over(CGPoint, files: [String])
+    case exited
+    case drop(CGPoint, files: [String])
 }

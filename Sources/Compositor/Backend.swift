@@ -6,6 +6,8 @@ public protocol BackendSurface: AnyObject {
     var onEvent: ((SurfaceEvent) -> Void)? { get set }
     /// Returns whether the key was handled; unhandled keys go to the system.
     var onKey: ((KeyEvent) -> Bool)? { get set }
+    /// File drags over the surface; returns whether a drop would be accepted at that point.
+    var onDrag: ((DragEvent) -> Bool)? { get set }
     /// Top-left global coordinates.
     func setFrame(_ frame: CGRect)
     func setLayer(_ layer: SurfaceLayer)
@@ -17,7 +19,18 @@ public protocol BackendSurface: AnyObject {
     func focus()
     /// Hosts a native view (e.g. a text field) above the layer tree, in surface-local top-left coordinates.
     func attach(_ view: NSView)
+    /// Starts a native drag of `files` from the mouse-down that's in progress (call it on `.mouseDragged`).
+    func beginDrag(files: [String])
     func destroy()
+}
+
+extension BackendSurface {
+    public var onDrag: ((DragEvent) -> Bool)? {
+        get { nil }
+        set {}
+    }
+
+    public func beginDrag(files: [String]) {}
 }
 
 @MainActor

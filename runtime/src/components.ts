@@ -1,5 +1,11 @@
 import type { EnterTransition, ExitTransition, Transitions } from "halo/animation";
-import { listen, type ClickEvent, type KeyEvent, type ScrollEvent } from "halo/events";
+import {
+  listen,
+  type ClickEvent,
+  type DropEvent,
+  type KeyEvent,
+  type ScrollEvent,
+} from "halo/events";
 import { reportError } from "halo/host";
 import { native, type ScreenInfo } from "halo/native";
 import {
@@ -126,6 +132,16 @@ export interface Interactive {
   onClick?: (event: ClickEvent) => void;
   onScroll?: (event: ScrollEvent) => void;
   onHover?: (hovered: boolean) => void;
+  /** Files dragged over this element (from Finder or any app). Use it to highlight a drop zone. */
+  onDragEnter?: (event: DropEvent) => void;
+  onDragLeave?: () => void;
+  /**
+   * Files dropped here; you get their paths, nothing is copied. Drop-only elements let clicks through until files are
+   * being dragged, so an invisible strip along a screen edge stays out of the way. Needs a non-passthrough surface.
+   */
+  onDrop?: (event: DropEvent) => void;
+  /** Drag these files out of the element (to Finder, Mail…), which moves or copies them as usual. Needs `input="interactive"`. */
+  draggable?: Reactive<{ files: string[] } | undefined>;
   ref?: (node: NativeNode) => void;
 }
 
@@ -135,6 +151,13 @@ function wire(node: NativeNode, props: Interactive): void {
   listen(node.id, "click", props.onClick);
   listen(node.id, "scroll", props.onScroll);
   listen(node.id, "hover", props.onHover);
+  listen(node.id, "dragEnter", props.onDragEnter);
+  listen(node.id, "dragLeave", props.onDragLeave);
+  listen(node.id, "drop", props.onDrop);
+  const draggable = props.draggable;
+  if (typeof draggable === "function")
+    effect(() => native.setProp(node.id, "draggable", draggable() ?? null));
+  else if (draggable) native.setProp(node.id, "draggable", draggable);
   props.ref?.(node);
 }
 
