@@ -2,6 +2,7 @@ import AppKit
 import Compositor
 import Foundation
 import QuartzCore
+import Services
 import Testing
 @testable import JSRuntime
 
@@ -25,6 +26,7 @@ private final class DragSurface: BackendSurface {
     var onKey: ((KeyEvent) -> Bool)?
     var onDrag: ((DragEvent) -> Bool)?
     var dragged: [[String]] = []
+    var visible = false
 
     func beginDrag(files: [String]) { dragged.append(files) }
     func focus() {}
@@ -33,8 +35,19 @@ private final class DragSurface: BackendSurface {
     func setLayer(_ layer: SurfaceLayer) {}
     func setInput(_ input: InputPolicy) {}
     func setMouseTransparent(_ transparent: Bool) {}
-    func setVisible(_ visible: Bool) {}
+    func setVisible(_ visible: Bool) { self.visible = visible }
     func destroy() {}
+}
+
+@MainActor
+private final class FakeDragService: Service {
+    var actions: [String] = []
+    func start(publish: @escaping @MainActor ([String: Any]) -> Void) { publish(["active": false, "outgoing": false]) }
+    func stop() {}
+    func perform(_ action: String, _ value: Any?) -> Bool {
+        actions.append(action)
+        return true
+    }
 }
 
 private let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/drag")
@@ -43,9 +56,10 @@ private let screen = ScreenInfo(id: 1, name: "Main", frame: CGRect(x: 0, y: 0, w
 @MainActor
 @Suite(.enabled(if: (try? Bundler.locate()) != nil, "needs esbuild"))
 struct DragTests {
-    private func load() throws -> (Runtime, DragSurface) {
+    private func load(drag: FakeDragService = FakeDragService()) throws -> (Runtime, DragSurface) {
         let backend = DragBackend()
         let runtime = Runtime(backend: backend, screens: [screen])
+        runtime.serviceFactory = { name, _ in name == "drag" ? drag : nil }
         runtime.evaluate(try Bundler.locate().build(configDirectory: fixture))
         return (runtime, try #require(backend.surfaces.last))
     }
@@ -102,6 +116,31 @@ struct DragTests {
         emit(.mouseDown(CGPoint(x: 150, y: 50), button: 0))
         emit(.mouseDragged(CGPoint(x: 170, y: 50)))
         #expect(surface.dragged.count == 1, "no files, no drag")
+        runtime.dispose()
+    }
+
+    @Test func aSurfaceUnderAFileDragStaysUntilTheDropLands() async throws {
+        let (runtime, surface) = try load()
+        let drag = try #require(surface.onDrag)
+        let files = ["/Users/me/report.pdf"]
+        #expect(drag(.over(CGPoint(x: 40, y: 50), files: files)))
+
+        runtime.context.evaluateScript("__test.hide()")
+        #expect(surface.visible, "hiding waits: macOS delivers the drop after the mouse-up")
+        #expect(drag(.drop(CGPoint(x: 40, y: 50), files: files)))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!surface.visible)
+        #expect(log(runtime).last == "drop /Users/me/report.pdf @40,50")
+        runtime.dispose()
+    }
+
+    @Test func dragsHaloStartsAreMarkedOutgoing() throws {
+        let service = FakeDragService()
+        let (runtime, surface) = try load(drag: service)
+        let emit = try #require(surface.onEvent)
+        emit(.mouseDown(CGPoint(x: 150, y: 50), button: 0))
+        emit(.mouseDragged(CGPoint(x: 170, y: 50)))
+        #expect(service.actions == ["outgoing"])
         runtime.dispose()
     }
 }

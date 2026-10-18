@@ -227,6 +227,8 @@ public final class Runtime {
         if entry.root.autoHeight { config.size.height = .fixed(entry.root.contentSize.height) }
         entry.placedContentSize = entry.root.contentSize
         config.visible = config.visible && !(host?.isHidden(name: entry.options.name) ?? false)
+        // macOS delivers a drop after the mouse-up that ends the drag; hiding the window under it first loses the drop.
+        if !config.visible, entry.shown, entry.dragTarget != nil { config.visible = true }
         var frame: CGRect?
         var screen = screens.first { $0.id == config.screen }
         if let attachment = entry.options.attach {

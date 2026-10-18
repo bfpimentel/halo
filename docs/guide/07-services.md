@@ -22,17 +22,17 @@ import {
 </Text>;
 ```
 
-| Service    | Values                                                                          | Updates                    |
-| ---------- | ------------------------------------------------------------------------------- | -------------------------- |
-| `battery`  | `present`, `percent`, `charging`, `source` (`ac`/`battery`), `minutesRemaining` | on power changes           |
-| `audio`    | `volume` (0–1), `muted`, `device`                                               | on volume or device change |
-| `network`  | `connected`, `type` (`wifi`, `ethernet`, …, `none`), `expensive`, `constrained` | on network change          |
-| `frontApp` | `name`, `bundleId`, `pid`                                                       | on app switch              |
-| `power`    | `lowPowerMode`, `thermal` (`nominal`, `fair`, `serious`, `critical`)            | on change                  |
-| `session`  | `locked`, `displaysAsleep`, `lastWake` (ms; changes on every wake)              | on change                  |
-| `drag`     | `active` (files are being dragged anywhere)                                     | while the button is held   |
-| `system`   | `cpu(ms?)`, `memory(ms?)`, `memoryUsed`, `memoryTotal`                          | every `ms` (default 2000)  |
-| `clock`    | `format(pattern)`                                                               | every minute or second     |
+| Service    | Values                                                                                               | Updates                    |
+| ---------- | ---------------------------------------------------------------------------------------------------- | -------------------------- |
+| `battery`  | `present`, `percent`, `charging`, `source` (`ac`/`battery`), `minutesRemaining`                      | on power changes           |
+| `audio`    | `volume` (0–1), `muted`, `device`                                                                    | on volume or device change |
+| `network`  | `connected`, `type` (`wifi`, `ethernet`, …, `none`), `expensive`, `constrained`                      | on network change          |
+| `frontApp` | `name`, `bundleId`, `pid`                                                                            | on app switch              |
+| `power`    | `lowPowerMode`, `thermal` (`nominal`, `fair`, `serious`, `critical`)                                 | on change                  |
+| `session`  | `locked`, `displaysAsleep`, `lastWake` (ms; changes on every wake)                                   | on change                  |
+| `drag`     | `active` (files are being dragged anywhere; true until the drop lands), `outgoing` (started in halo) | while the button is held   |
+| `system`   | `cpu(ms?)`, `memory(ms?)`, `memoryUsed`, `memoryTotal`                                               | every `ms` (default 2000)  |
+| `clock`    | `format(pattern)`                                                                                    | every minute or second     |
 
 Values are `undefined` until the first reading arrives.
 

@@ -295,11 +295,17 @@ export const session: Session = {
 
 /** File drags anywhere on screen. Every value is reactive. */
 export interface Drag {
-  /** Files are being dragged right now, from Finder or any app. Show a drop zone while it's true. */
+  /**
+   * Files are being dragged right now, from Finder or any app. Show a drop zone while it's true; it stays true a moment
+   * after the button goes up, until the drop has landed.
+   */
   active(): boolean;
+  /** The drag started in a halo widget (`draggable`): don't open a drop zone for files leaving it. */
+  outgoing(): boolean;
 }
 
 /** File drags in progress, from mouse events and the drag pasteboard's type (its contents are never read). */
 export const drag: Drag = {
   active: () => read<{ active: boolean }>("drag")?.active ?? false,
+  outgoing: () => read<{ outgoing: boolean }>("drag")?.outgoing ?? false,
 };

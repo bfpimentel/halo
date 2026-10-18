@@ -152,7 +152,7 @@ const shelf = signal<string[]>([]);
   screen={screen}
   anchor={["top"]}
   input="interactive"
-  visible={() => drag.active() || shelf().length > 0}
+  visible={() => (drag.active() && !drag.outgoing()) || shelf().length > 0}
 >
   <Box
     onDragEnter={() => over.set(true)}
@@ -172,6 +172,7 @@ const shelf = signal<string[]>([]);
 | `onDrop`                     | `{ files, x, y }`: the dropped paths                                                |
 | `draggable={{ files }}`      | Dragging the element out hands over the files; Finder moves or copies them as usual |
 | `drag.active()`              | Files are being dragged anywhere: show drop zones only then                         |
+| `drag.outgoing()`            | The drag started in a halo widget (`draggable`): skip drop zones for files leaving  |
 
 - Only drags of files that exist on disk count (Finder, editors that drag their files). File promises (library items from
   Photos or video editors) and dragged text or web images don't trigger anything.

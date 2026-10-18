@@ -27,13 +27,25 @@ extension Runtime {
         case .exited:
             if let old = entry.dragTarget { dispatch(old, "dragLeave", NSNull()) }
             entry.dragTarget = nil
+            placeAfterDrag(entry)
             return false
         case .drop(let point, let files):
             if let old = entry.dragTarget { dispatch(old, "dragLeave", NSNull()) }
             entry.dragTarget = nil
+            placeAfterDrag(entry)
             guard let target = firstListener(["drop"], at: point, in: entry) else { return false }
             dispatch(target, "drop", ["files": files, "x": point.x, "y": point.y])
             return true
+        }
+    }
+
+    /// A surface kept on screen for a drag (see `place`) hides on the next pass, once the drop has been delivered.
+    private func placeAfterDrag(_ entry: SurfaceEntry) {
+        DispatchQueue.main.async { [weak self, weak entry] in
+            MainActor.assumeIsolated {
+                guard let self, let entry, !self.disposed, self.surfaces[entry.id] != nil else { return }
+                self.place(entry)
+            }
         }
     }
 
@@ -49,6 +61,7 @@ extension Runtime {
         entry.pressed = nil
         guard let files = draggables[id] else { return }
         entry.surface.beginDrag(files: files)
+        _ = serviceEntries["drag"]?.service.perform("outgoing", true)
         followOwnDrag()
     }
 
