@@ -1,0 +1,40 @@
+{
+  "demo": {
+    "still": "screen"
+  },
+  "signals": {
+    "video": {
+      "surface": 0,
+      "seconds": 6
+    }
+  },
+  "aerospace": {
+    "still": [0]
+  },
+  "launcher": {
+    "before": ["show", "launcher"],
+    "still": "screen"
+  },
+  "shapes": {
+    "video": {
+      "surface": 0,
+      "seconds": 6
+    }
+  },
+  "io": {
+    "video": {
+      "surface": 0,
+      "seconds": 7
+    },
+    "title": "IO"
+  },
+  "services": {
+    "still": [0]
+  },
+  "animation": {
+    "video": {
+      "surface": 0,
+      "seconds": 8
+    }
+  }
+}

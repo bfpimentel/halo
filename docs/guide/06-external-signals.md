@@ -21,30 +21,10 @@ const music = externalSignal("music", { initial: { title: "", artist: "" } });
   `{ stdout, stderr, code }`.
 - The last payload survives reloads.
 
-## AeroSpace
+## Window managers
 
-Window-manager support is something you build, not a halo module: a trigger from the WM's hooks plus a `hydrate`
-query. The focused workspace:
-
-```tsx
-const focused = externalSignal("aerospace.workspace", {
-  hydrate: "aerospace list-workspaces --focused",
-  parse: (payload) => payload.focused ?? payload.stdout?.trim(),
-});
-<Text>{() => `WS ${focused()}`}</Text>;
-```
-
-Add to `aerospace.toml`:
-
-```toml
-exec-on-workspace-change = ['/bin/bash', '-c',
-  'halo trigger aerospace.workspace focused=$AEROSPACE_FOCUSED_WORKSPACE prev=$AEROSPACE_PREV_WORKSPACE']
-on-focus-changed = ['exec-and-forget halo trigger aerospace.focus']
-```
-
-For every workspace per display, with focus and emptiness, copy
-[`examples/aerospace/aerospace.ts`](https://github.com/bfpimentel/halo/blob/main/examples/aerospace/aerospace.ts) into
-your config. It maps AeroSpace monitors to halo displays through `ScreenInfo.index`, and the same shape works for yabai
-or any WM with a CLI and change hooks.
+Workspace state comes from your window manager the same way: its hooks call `halo trigger`, and a `hydrate` query
+fills the value in on load. The [AeroSpace example](../examples/aerospace.html) has the full setup, and the same
+shape works for yabai or any WM with a CLI and change hooks.
 
 Reference: [`externalSignal`](../reference/halo-signals.html#externalSignal), [CLI](../cli.html).

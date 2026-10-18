@@ -4,7 +4,7 @@
 
 ![Widgets made with halo](assets/hero.png)
 
-<p class="cta"><a href="guide/getting-started.html">Read the docs</a><a href="https://github.com/bfpimentel/halo">GitHub</a></p>
+<p class="cta"><a href="guide/getting-started.html">Read the docs</a><a href="examples/index.html">Examples</a><a href="https://github.com/bfpimentel/halo">GitHub</a></p>
 
 ## Why
 

@@ -65,6 +65,90 @@ marked.use({
 
 const prose = (markdown: string) => marked.parse(markdown, { async: false });
 
+// MARK: Examples
+
+const examplesDir = join(repo, "examples");
+/** Capture specs for scripts/screenshots.sh; an optional `title` overrides the folder name. */
+const manifest = JSON.parse(
+  readFileSync(join(import.meta.dir, "examples.json"), "utf8"),
+) as Record<string, { title?: string }>;
+
+/** Demo media for an example: a looping video when there's one, else the screenshot. */
+function demo(name: string, root: string, label: string): string {
+  const base = join(docs, "assets", "examples", name);
+  const src = `${root}assets/examples/${name}`;
+  if (existsSync(`${base}.mp4`))
+    return `<video src="${src}.mp4" autoplay loop muted playsinline aria-label="${escape(label)}"></video>`;
+  if (existsSync(`${base}.png`)) return `<img src="${src}.png" alt="${escape(label)}">`;
+  return "";
+}
+
+/**
+ * The gallery and one page per example. Order and descriptions come from the table in examples/README.md (also what
+ * GitHub shows); an example's own README.md adds setup notes; every .ts/.tsx file is shown in full.
+ */
+function examples(): Page[] {
+  const table = readFileSync(join(examplesDir, "README.md"), "utf8");
+  const rows = [
+    ...table.matchAll(/^\| \[`([\w-]+)`\]\([^)]*\)\s*\|\s*(.+?)\s*\|$/gm),
+  ].map(([, name, text]) => ({
+    name: name ?? "",
+    text: text ?? "",
+  }));
+  const pages: Page[] = [];
+  const cards: string[] = [];
+  for (const { name, text } of rows) {
+    const folder = join(examplesDir, name);
+    const notes = existsSync(join(folder, "README.md"))
+      ? readFileSync(join(folder, "README.md"), "utf8")
+      : "";
+    const title =
+      notes.match(/^# (.+)$/m)?.[1] ??
+      manifest[name]?.title ??
+      name.charAt(0).toUpperCase() + name.slice(1);
+    const description = marked.parseInline(text, { async: false });
+    const files = readdirSync(folder)
+      .filter((file) => /\.tsx?$/.test(file))
+      .sort((a, b) =>
+        a === "main.tsx" ? -1 : b === "main.tsx" ? 1 : a.localeCompare(b),
+      );
+    const sources = files
+      .map((file) => {
+        const code = readFileSync(join(folder, file), "utf8");
+        const href = `${github}/blob/main/examples/${name}/${file}`;
+        return `<h3 id="${slug(file)}"><a href="${href}"><code>${file}</code></a></h3>${prose("```tsx\n" + code + "\n```")}`;
+      })
+      .join("");
+    const run = prose(
+      "```bash\nswift run halo start --config examples/" +
+        name +
+        '                         # from a clone\nhalo start --config "$(brew --prefix)/share/halo/examples/' +
+        name +
+        '"   # Homebrew\n```',
+    );
+    pages.push({
+      path: `examples/${name}.html`,
+      title,
+      html:
+        `<h1>${escape(title)}</h1><p>${description}</p>${demo(name, "../", title)}` +
+        prose(notes.replace(/^# .+\n/, "")) +
+        `<h2 id="run">Run it</h2>${run}<h2 id="source">Source</h2>${sources}`,
+    });
+    cards.push(
+      `<a class="card" href="${name}.html">${demo(name, "../", title)}<strong>${escape(title)}</strong><span>${description}</span></a>`,
+    );
+  }
+  pages.unshift({
+    path: "examples/index.html",
+    title: "Gallery",
+    html:
+      `<h1>Examples</h1><p>Complete configs from <a href="${github}/tree/main/examples"><code>examples/</code></a>, ` +
+      `recorded as they run. Copy any of them into your config folder and change what you like.</p>` +
+      `<div class="gallery">${cards.join("")}</div>`,
+  });
+  return pages;
+}
+
 // MARK: Guides
 
 function guides(): Page[] {
@@ -239,6 +323,7 @@ function render(page: Page, pages: Page[]) {
   const link = (target: Page) =>
     `<a href="${root}${target.path}"${target.path === page.path ? ' class="current"' : ""}>${target.title}</a>`;
   const guide = pages.filter((each) => each.path.startsWith("guide/")).map(link);
+  const gallery = pages.filter((each) => each.path.startsWith("examples/")).map(link);
   const api = pages.filter((each) => each.path.startsWith("reference/")).map(link);
   const cliPage = pages.find((each) => each.path === "cli.html");
   return `<!doctype html>
@@ -248,12 +333,15 @@ function render(page: Page, pages: Page[]) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${page.path === "index.html" ? "halo: TSX widgets for macOS" : page.path.startsWith("reference/") ? `${page.title} reference` : `${page.title} · halo`}</title>
 <link rel="stylesheet" href="${root}style.css">
+<link rel="icon" href="${root}assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="${root}assets/favicon.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="${root}assets/apple-touch-icon.png">
 </head>
 <body>
 ${
   page.path === "index.html"
     ? `<main class="landing">${page.html}</main>
-<footer><a href="guide/getting-started.html">Docs</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a></footer>`
+<footer><a href="guide/getting-started.html">Docs</a><a href="examples/index.html">Examples</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a></footer>`
     : `<header>
 <a class="brand" href="${root}index.html"><img src="${root}assets/logo.svg" alt="halo"></a>
 <span><a href="${root}guide/getting-started.html">Docs</a><a href="${github}">GitHub</a></span>
@@ -261,6 +349,7 @@ ${
 <div class="layout">
 <nav>
 <p>Guide</p>${guide.join("")}
+<p>Examples</p>${gallery.join("")}
 <p>Reference</p>${api.join("")}${cliPage ? link(cliPage) : ""}
 </nav>
 <main>${page.html}</main>
@@ -273,7 +362,7 @@ ${
 
 // MARK: Build
 
-const pages = [...guides(), ...(await reference()), cli()];
+const pages = [...guides(), ...examples(), ...(await reference()), cli()];
 rmSync(out, { recursive: true, force: true });
 for (const page of pages) {
   const file = join(out, page.path);

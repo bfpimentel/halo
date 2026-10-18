@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://bfpimentel.github.io/halo/">Website</a> ·
   <a href="https://bfpimentel.github.io/halo/guide/getting-started.html">Docs</a> ·
+  <a href="https://bfpimentel.github.io/halo/examples/index.html">Examples</a> ·
   <a href="https://bfpimentel.github.io/halo/reference/halo.html">API</a>
 </p>
 
@@ -135,7 +136,7 @@ export default () => (
 
 `aerospace.ts` is plain halo code (`externalSignal` plus `sh`), not a built-in: adapt it, or write one for your WM.
 Point AeroSpace's `exec-on-workspace-change` at `halo trigger aerospace.workspace …`
-([setup](https://bfpimentel.github.io/halo/guide/external-signals.html#aerospace)). More in
+([setup](https://bfpimentel.github.io/halo/examples/aerospace.html)). More in
 [`examples/`](examples/README.md).
 
 Widgets from other users are in

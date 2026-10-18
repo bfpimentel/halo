@@ -1,5 +1,7 @@
 # Examples
 
+Each one is recorded and shown with its full source in the [examples gallery](https://bfpimentel.github.io/halo/examples/index.html).
+
 Run any of them with `swift run halo start --config examples/<name>` (or `halo start --config …` once installed).
 Edits hot-reload.
 
