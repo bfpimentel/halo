@@ -1,6 +1,6 @@
 // Draws window captures at their screen positions on a dark, screen-sized canvas (the main display's size): a picture
 // of how widgets sit on screen, without the wallpaper or any other app.
-// Usage: swift scripts/compose.swift <out.png> <png>:<x>:<y> ...   (x/y: top-left points)
+// Usage: swift scripts/compose.swift <out.png> <png>:<x>:<y> ...   (x/y: top-left points; later parts draw on top)
 import AppKit
 
 let arguments = CommandLine.arguments.dropFirst()

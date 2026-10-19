@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 
 public enum ImageSource: Hashable, Sendable {
     case file(String)
@@ -45,7 +46,18 @@ public final class Image: Node {
     public override var paintsContent: Bool { source != nil || super.paintsContent }
 
     private func reload() {
+        if case .file(let path) = source {
+            layer.contents = Self.bitmap(atPath: (path as NSString).expandingTildeInPath)
+            return
+        }
         layer.contents = load()?.layerContents(forContentsScale: contentsScale)
+    }
+
+    /// Image files are decoded at full resolution: `NSImage.layerContents` can hand back a downscaled copy whose
+    /// aspect ratio is slightly off (a blurry wallpaper with gaps at its edges).
+    private static func bitmap(atPath path: String) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
     }
 
     private func load() -> NSImage? {
