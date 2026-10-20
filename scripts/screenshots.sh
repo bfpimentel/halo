@@ -54,11 +54,14 @@ done
 
 # Example demos (site/examples.json → docs/assets/examples/<name>.{png,mp4}): each example runs in its own host.
 # "still": "screen" draws every shown window at its screen position on a plain canvas (scripts/compose.swift);
-# "still": [i] captures surface i; "video": { surface, seconds } records it; "before" runs `halo <args>` first.
+# "still": [i] captures surface i; "video": { surface, seconds } records it, plus <name>.mask.png (the window's
+# transparent still: video has no alpha, so the page masks the video with it); "before" runs `halo <args>` first.
 kill "$host" 2> /dev/null || true
 mkdir -p docs/assets/examples
 swiftc -O scripts/compose.swift -o "${TMPDIR:-/tmp/}halo-compose" 2> /dev/null
 compose="${TMPDIR:-/tmp/}halo-compose"
+swiftc -O scripts/mask.swift -o "${TMPDIR:-/tmp/}halo-mask" 2> /dev/null
+mask="${TMPDIR:-/tmp/}halo-mask"
 python3 -c '
 import json
 for name, spec in json.load(open("site/examples.json")).items():
@@ -86,12 +89,15 @@ for index, surface in enumerate(json.load(sys.stdin)["surfaces"]):
   done)"
   window() { awk -v i="$1" '$1 == i { print $2 }' <<< "$shown"; }
   out="docs/assets/examples/$name"
-  rm -f "$out.png" "$out.mp4"
+  rm -f "$out.png" "$out.mp4" "$out.mask.png"
   if [[ -n "$surface" ]]; then
     movie="$(mktemp -t halo-example).mov"
     screencapture -x -v -V "$seconds" -l "$(window "$surface")" "$movie" < /dev/null
     avconvert -s "$movie" -p PresetHighestQuality -o "$out.mp4" --replace < /dev/null > /dev/null 2>&1
     rm -f "$movie"
+    screencapture -x -o -l "$(window "$surface")" "$movie.png" < /dev/null
+    "$mask" "$movie.png" "$out.mask.png"
+    rm -f "$movie.png"
     echo "$out.mp4"
   elif [[ "$still" == screen ]]; then
     parts=()

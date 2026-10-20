@@ -296,3 +296,53 @@ footer a:hover {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* Same box as the video's own "contain" fit, so the mask lands on the picture in cards too. */
+video.masked {
+  mask: var(--mask) center / contain no-repeat;
+  -webkit-mask: var(--mask) center / contain no-repeat;
+}
+
+details.source {
+  margin: 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+details.source summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.source summary::-webkit-details-marker {
+  display: none;
+}
+
+details.source summary::before {
+  content: "▸";
+  color: var(--muted);
+}
+
+details.source[open] summary::before {
+  content: "▾";
+}
+
+details.source summary span {
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+details.source summary a {
+  font-size: 13px;
+}
+
+details.source pre {
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+}

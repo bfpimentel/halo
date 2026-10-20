@@ -77,12 +77,18 @@ const manifest = JSON.parse(
   readFileSync(join(import.meta.dir, "examples.json"), "utf8"),
 ) as Record<string, { title?: string }>;
 
-/** Demo media for an example: a looping video when there's one, else the screenshot. */
+/**
+ * Demo media for an example: a looping video when there's one, else the screenshot. Videos have no alpha, so a
+ * recorded window's transparent parts come out black; its `.mask.png` (a transparent still) clips them back out.
+ */
 function demo(name: string, root: string, label: string): string {
   const base = join(docs, "assets", "examples", name);
   const src = `${root}assets/examples/${name}`;
+  const mask = existsSync(`${base}.mask.png`)
+    ? ` class="masked" style="--mask: url('${src}.mask.png')"`
+    : "";
   if (existsSync(`${base}.mp4`))
-    return `<video src="${src}.mp4" autoplay loop muted playsinline aria-label="${escape(label)}"></video>`;
+    return `<video src="${src}.mp4"${mask} autoplay loop muted playsinline aria-label="${escape(label)}"></video>`;
   if (existsSync(`${base}.png`)) return `<img src="${src}.png" alt="${escape(label)}">`;
   return "";
 }
@@ -136,7 +142,12 @@ function examples(): Page[] {
         const code = readFileSync(join(folder, file), "utf8");
         const href = `${github}/blob/${ref}/examples/${name}/${file}`;
         const language = file.endsWith(".json") ? "json" : "tsx";
-        return `<h3 id="${slug(file)}"><a href="${href}"><code>${file}</code></a></h3>${prose("```" + language + "\n" + code + "\n```")}`;
+        const lines = code.trimEnd().split("\n").length;
+        return (
+          `<details class="source" id="${slug(file)}"><summary><code>${file}</code>` +
+          `<span>${lines} lines</span><a href="${href}">GitHub</a></summary>` +
+          `${prose("```" + language + "\n" + code + "\n```")}</details>`
+        );
       })
       .join("");
     const run = prose(
