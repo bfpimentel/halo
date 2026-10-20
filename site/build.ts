@@ -24,6 +24,10 @@ const repo = join(import.meta.dir, "..");
 const docs = join(repo, "docs");
 const out = join(import.meta.dir, "dist");
 const github = "https://github.com/bfpimentel/halo";
+/** The release tag being built (`vX.Y.Z`, served at the site root) or "next" (`main`, served at `/next/`). */
+const version = process.env.HALO_DOCS_VERSION ?? "next";
+const released = /^v\d/.test(version);
+const ref = released ? version : "main";
 // Inlined so the wordmark follows the page's color scheme (WebKit ignores it inside <img> SVGs).
 const logo = readFileSync(join(docs, "assets", "logo.svg"), "utf8")
   .replace(/<style>[\s\S]*?<\/style>/, "")
@@ -130,7 +134,7 @@ function examples(): Page[] {
     const sources = files
       .map((file) => {
         const code = readFileSync(join(folder, file), "utf8");
-        const href = `${github}/blob/main/examples/${name}/${file}`;
+        const href = `${github}/blob/${ref}/examples/${name}/${file}`;
         const language = file.endsWith(".json") ? "json" : "tsx";
         return `<h3 id="${slug(file)}"><a href="${href}"><code>${file}</code></a></h3>${prose("```" + language + "\n" + code + "\n```")}`;
       })
@@ -158,7 +162,7 @@ function examples(): Page[] {
     path: "examples/index.html",
     title: "Gallery",
     html:
-      `<h1>Examples</h1><p>Complete configs from <a href="${github}/tree/main/examples"><code>examples/</code></a>, ` +
+      `<h1>Examples</h1><p>Complete configs from <a href="${github}/tree/${ref}/examples"><code>examples/</code></a>, ` +
       `recorded as they run. Copy any of them into your config folder and change what you like.</p>` +
       `<div class="gallery">${cards.join("")}</div>`,
   });
@@ -334,6 +338,13 @@ function cli(): Page {
 
 // MARK: Layout
 
+/** Which docs these are, with a link to the other build: the latest release lives at `/`, `main` at `/next/`. */
+function versionNote(root: string): string {
+  return released
+    ? `<span class="version">${version} · <a href="${root}next/index.html">main branch docs</a></span>`
+    : `<span class="version">main (unreleased) · <a href="${root}../index.html">latest release docs</a></span>`;
+}
+
 function render(page: Page, pages: Page[]) {
   const root = "../".repeat(page.path.split("/").length - 1);
   const link = (target: Page) =>
@@ -357,10 +368,10 @@ function render(page: Page, pages: Page[]) {
 ${
   page.path === "index.html"
     ? `<main class="landing">${page.html}</main>
-<footer><a href="guide/getting-started.html">Docs</a><a href="examples/index.html">Examples</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a></footer>`
+<footer><a href="guide/getting-started.html">Docs</a><a href="examples/index.html">Examples</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a>${versionNote(root)}</footer>`
     : `<header>
 <a class="brand" href="${root}index.html"><img src="${root}assets/logo.svg" alt="halo"></a>
-<span><a href="${root}guide/getting-started.html">Docs</a><a href="${github}">GitHub</a></span>
+<span>${versionNote(root)}<a href="${root}guide/getting-started.html">Docs</a><a href="${github}">GitHub</a></span>
 </header>
 <div class="layout">
 <nav>
@@ -389,4 +400,4 @@ cpSync(join(import.meta.dir, "style.css"), join(out, "style.css"));
 if (existsSync(join(docs, "assets")))
   cpSync(join(docs, "assets"), join(out, "assets"), { recursive: true });
 writeFileSync(join(out, ".nojekyll"), "");
-console.log(`site/dist: ${pages.length} pages`);
+console.log(`site/dist: ${pages.length} pages (${version})`);

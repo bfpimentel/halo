@@ -70,3 +70,9 @@ brew audit --strict bfpimentel/tap/halo
 ```
 
 The build needs Xcode 16+ (Swift 6 tools) and fetches the pinned Yoga package through SwiftPM.
+
+## Docs
+
+The docs site follows releases: the root shows the latest `v*` tag's docs and `/next/` shows `main`'s, each linking
+to the other from the header. [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) rebuilds both on every
+tag and on pushes to `main` that touch docs, examples or the runtime. Pushing a tag is all a release needs.

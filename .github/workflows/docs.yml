@@ -1,9 +1,12 @@
 name: docs
 
+# The site root is the latest release's docs (rebuilt on every tag); /next/ is main's (rebuilt on docs changes).
 on:
   push:
+    tags: ["v*"]
     branches: [main]
-    paths: ["docs/**", "site/**", "runtime/src/**", "Sources/IPC/Protocol.swift", ".github/workflows/docs.yml"]
+    paths:
+      ["docs/**", "site/**", "examples/**", "runtime/src/**", "Sources/IPC/Protocol.swift", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -20,16 +23,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - name: Build the site
+      - name: Build the latest release's docs (site root)
+        run: |
+          tag="$(git tag -l 'v*' --sort=-v:refname | head -n 1)"
+          git worktree add "$RUNNER_TEMP/release" "$tag"
+          cd "$RUNNER_TEMP/release/site"
+          bun install --frozen-lockfile
+          HALO_DOCS_VERSION="$tag" bun run build
+          cp -R dist "$RUNNER_TEMP/pages"
+      - name: Build main's docs (/next/)
         working-directory: site
         run: |
           bun install --frozen-lockfile
-          bun run build
+          HALO_DOCS_VERSION=next bun run build
+          cp -R dist "$RUNNER_TEMP/pages/next"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site/dist
+          path: ${{ runner.temp }}/pages
 
   deploy:
     needs: build

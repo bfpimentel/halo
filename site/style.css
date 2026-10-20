@@ -66,7 +66,14 @@ svg[aria-label="halo"] text {
 
 header span {
   display: flex;
+  align-items: baseline;
   gap: 18px;
+}
+
+.version {
+  display: inline;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 main.landing {
