@@ -128,7 +128,8 @@ A native text field. Needs `input="keyboard"` on its surface.
 />
 ```
 
-`onKeyDown` gets every editing key with modifiers; return `true` to stop the default.
+It has the usual macOS editing shortcuts: ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z and ⌘⇧Z. `onKeyDown` gets every editing key with
+modifiers, those shortcuts included; return `true` to stop the default.
 
 ## Events
 

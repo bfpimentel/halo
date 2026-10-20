@@ -24,6 +24,28 @@ private final class Panel: NSPanel {
     var acceptsKey = false
     override var canBecomeKey: Bool { acceptsKey }
     override var canBecomeMain: Bool { false }
+
+    private static let editing: [String: Selector] = [
+        "a": #selector(NSResponder.selectAll(_:)),
+        "c": #selector(NSText.copy(_:)),
+        "v": #selector(NSText.paste(_:)),
+        "x": #selector(NSText.cut(_:)),
+        "z": Selector(("undo:")),
+        "Z": Selector(("redo:")),
+    ]
+
+    /// halo has no main menu, so the Edit menu's shortcuts are mapped here, only while a text field is editing.
+    /// The field's delegate sees each one first, so `onKeyDown` can still consume it.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+        guard let editor = firstResponder as? NSTextView,
+              flags == .command || flags == [.command, .shift],
+              let characters = event.charactersIgnoringModifiers,
+              let action = Self.editing[flags.contains(.shift) ? characters.uppercased() : characters.lowercased()]
+        else { return super.performKeyEquivalent(with: event) }
+        if editor.delegate?.textView?(editor, doCommandBy: action) == true { return true }
+        return NSApp.sendAction(action, to: nil, from: self) || super.performKeyEquivalent(with: event)
+    }
 }
 
 /// AppKit owns the flip state of a view's backing layer; a flipped view is the supported way to get top-left sublayers.
