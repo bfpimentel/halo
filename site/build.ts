@@ -371,7 +371,7 @@ ${
 <footer><a href="guide/getting-started.html">Docs</a><a href="examples/index.html">Examples</a><a href="reference/halo.html">API</a><a href="cli.html">CLI</a><a href="${github}">GitHub</a>${versionNote(root)}</footer>`
     : `<header>
 <a class="brand" href="${root}index.html"><img src="${root}assets/logo.svg" alt="halo"></a>
-<span>${versionNote(root)}<a href="${root}guide/getting-started.html">Docs</a><a href="${github}">GitHub</a></span>
+<span>${versionNote(root)}<a href="${github}">GitHub</a></span>
 </header>
 <div class="layout">
 <nav>

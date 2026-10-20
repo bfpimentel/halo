@@ -29,7 +29,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Build the latest release's docs (site root)
         run: |
-          tag="$(git tag -l 'v*' --sort=-v:refname | head -n 1)"
+          git fetch --force --tags origin
+          tag="$GITHUB_REF_NAME"
+          [ "$GITHUB_REF_TYPE" = tag ] || tag="$(git tag -l 'v*' --sort=-v:refname | head -n 1)"
+          echo "Site root: $tag's docs" >> "$GITHUB_STEP_SUMMARY"
           git worktree add "$RUNNER_TEMP/release" "$tag"
           cd "$RUNNER_TEMP/release/site"
           bun install --frozen-lockfile
