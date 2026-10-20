@@ -107,17 +107,36 @@ A widget is a file in `widgets/` (`widgets/<name>.tsx`, or `widgets/<name>/index
 | `screens` | `"all"` (default), `"main"` (the menu-bar display) or 1-based display indices (`ScreenInfo.index`). |
 | `props`   | JSON handed to the widget. Default `{}`.                                                         |
 
-The widget's default export runs once per display it shows on and returns its surfaces:
+The widget's default export runs once per display it shows on and returns its surfaces. `defineWidget` declares its
+props: values from `halo.json` are checked, missing ones take their defaults, and `props` is typed from the schema.
 
 ```tsx
-import { Surface, Text, type WidgetProps } from "halo";
+import { Surface, Text, defineWidget } from "halo";
 
-export default ({ screen, props }: WidgetProps<{ size?: number }>) => (
-  <Surface screen={screen} anchor={["top"]}>
-    <Text style={{ fontSize: props.size ?? 22 }}>hello</Text>
-  </Surface>
-);
+export default defineWidget({
+  props: {
+    text: { type: "string", default: "hello", label: "Text" },
+    size: { type: "number", default: 22, min: 10, max: 96, label: "Size" },
+    edge: { type: "select", options: ["top", "bottom"], default: "top" },
+  },
+  render: ({ screen, props }) => (
+    <Surface screen={screen} anchor={[props.edge]}>
+      <Text style={{ fontSize: props.size }}>{props.text}</Text>
+    </Surface>
+  ),
+});
 ```
+
+| Prop type | Fields                                    | Settings control       |
+| --------- | ----------------------------------------- | ---------------------- |
+| `string`  | `default`                                 | text field             |
+| `number`  | `default`, `min`, `max`, `step` (−/+, 1)  | field with −/+ buttons |
+| `boolean` | `default`                                 | switch                 |
+| `select`  | `options`, `default`                      | one chip per option    |
+
+Every type also takes `label` and `description`. An invalid value is reported with the instance's name and replaced by
+the default. A plain function default export (`({ screen, props }: WidgetProps<…>) => …`) still works, untyped and
+unchecked.
 
 Share state between widgets through a module both import (its top-level code runs once). A widget that throws is
 reported by name; the others keep running.
@@ -139,11 +158,13 @@ the corner; runtime errors show there too, with your file and line. Full output:
 halo settings
 ```
 
-With halo running, opens an editor for `halo.json` (run it again, press Esc or click Close to dismiss). Add instances from the widgets in
-`widgets/`, rename, duplicate or remove them, pick their screens, and edit string, number and boolean props; nested
-props stay in the file. Every change is saved at once, so the widgets reload as you edit. Text fields apply on Enter.
+With halo running, opens an editor for `halo.json` (run it again, press Esc or click Close to dismiss). Add instances
+from the widgets in `widgets/`, rename, duplicate or remove them, and pick their screens. A `defineWidget` widget gets
+a control per prop, with a reset button once you change it from its default; changing it back removes it from
+`halo.json`. Other widgets get plain rows for their string, number and boolean props. Every change is saved at once,
+so the widgets reload as you edit. Text fields apply on Enter.
 
-<video src="../assets/settings.mp4" autoplay loop muted playsinline aria-label="halo settings: editing a clock's format, size and color, then adding, renaming and removing instances"></video>
+<video src="../assets/settings.mp4" autoplay loop muted playsinline aria-label="halo settings: stepping a clock's size, picking its theme, toggling a switch, renaming its label, adding a second clock and resetting a prop"></video>
 
 ## Start at login
 

@@ -19,19 +19,26 @@ import {
   guessValue,
   isSelected,
   parseConfig,
+  extraProps,
   parseEdit,
+  parseSchemaEdit,
   removeInstance,
   removeProp,
   renameInstance,
   serialize,
+  schemaRows,
   setProp,
+  setSchemaProp,
   splitProps,
+  stepNumber,
   toggleScreen,
   updateInstance,
   widgetNames,
   type Config,
   type Flat,
+  type SchemaRow,
 } from "halo/settings/model";
+import type { PropSchema } from "halo/widget";
 
 const card = "#1e1e2e";
 const raised = "#313244";
@@ -41,6 +48,10 @@ const muted = "#7f849c";
 const accent = "#89b4fa";
 const danger = "#f38ba8";
 const onAccent = "#1e1e2e";
+
+const schemas = signal<Record<string, PropSchema>>({});
+globalThis.__halo.onSchemas = (json) =>
+  schemas.set(JSON.parse(json) as Record<string, PropSchema>);
 
 function Label(props: { children: string }) {
   return (
@@ -301,6 +312,77 @@ export default function Settings({ screen }: WidgetProps) {
     </Box>
   );
 
+  const schemaRow = (name: string, row: SchemaRow): Element => {
+    const { key, spec, value } = row;
+    const set = (next: Flat) => edit((now) => setSchemaProp(now, name, key, spec, next));
+    let control: Element;
+    if (spec.type === "boolean")
+      control = <Toggle value={value as boolean} onChange={set} />;
+    else if (spec.type === "select")
+      control = (
+        <Box style={{ flexDirection: "row", gap: 6 }}>
+          {spec.options.map((option) => (
+            <Chip
+              label={option}
+              selected={() => value === option}
+              onClick={() => set(option)}
+            />
+          ))}
+        </Box>
+      );
+    else {
+      const field = (
+        <Field
+          value={String(value)}
+          width={spec.type === "number" ? 90 : undefined}
+          onCommit={(input) => {
+            const result = parseSchemaEdit(input, spec);
+            if ("error" in result)
+              return status.set(`${spec.label ?? key}: ${result.error}`);
+            set(result.value);
+          }}
+        />
+      );
+      control =
+        spec.type === "number" ? (
+          <Box style={{ flexDirection: "row", align: "center", gap: 6 }}>
+            <Chip
+              symbol="minus"
+              onClick={() => set(stepNumber(value as number, spec, -1))}
+            />
+            {field}
+            <Chip
+              symbol="plus"
+              onClick={() => set(stepNumber(value as number, spec, 1))}
+            />
+          </Box>
+        ) : (
+          field
+        );
+    }
+    return (
+      <Box style={{ flexDirection: "row", align: "center", gap: 8 }}>
+        <Box style={{ width: 140, gap: 1 }}>
+          <Text style={{ fontSize: 13, color: foreground }}>{spec.label ?? key}</Text>
+          {spec.description ? (
+            <Text style={{ fontSize: 11, color: muted, lines: 0 }}>
+              {spec.description}
+            </Text>
+          ) : null}
+        </Box>
+        <Box style={{ grow: 1, shrink: 1, flexDirection: "row", align: "center" }}>
+          {control}
+        </Box>
+        {row.overridden ? (
+          <Chip
+            symbol="arrow.uturn.backward"
+            onClick={() => edit((now) => removeProp(now, name, key))}
+          />
+        ) : null}
+      </Box>
+    );
+  };
+
   const newProp = (name: string) => {
     const key = signal("");
     return (
@@ -329,7 +411,10 @@ export default function Settings({ screen }: WidgetProps) {
           No widgets yet: add one from the list on the left.
         </Text>
       );
-    const { flat, nested } = splitProps(instance.props);
+    const schema = schemas()[instance.widget];
+    const { flat, nested } = schema
+      ? extraProps(schema, instance.props)
+      : splitProps(instance.props);
     return (
       <Box style={{ gap: 14 }}>
         <Box style={{ gap: 6 }}>
@@ -358,13 +443,21 @@ export default function Settings({ screen }: WidgetProps) {
         </Box>
         <Box style={{ gap: 6 }}>
           <Label>Props</Label>
+          {schema
+            ? schemaRows(schema, instance.props).map((row) => schemaRow(name, row))
+            : null}
+          {schema && flat.length + nested.length > 0 ? (
+            <Text style={{ fontSize: 11, color: muted }}>
+              {"Not in the widget's schema:"}
+            </Text>
+          ) : null}
           {flat.map(([key, value]) => propRow(name, key, value))}
           {nested.map((key) => (
             <Text
               style={{ fontSize: 12, color: muted }}
             >{`${key}: edit in halo.json`}</Text>
           ))}
-          {newProp(name)}
+          {schema ? null : newProp(name)}
         </Box>
         <Box style={{ flexDirection: "row", gap: 6, padding: [4, 0, 0, 0] }}>
           <Chip

@@ -65,7 +65,7 @@ struct WidgetConfigTests {
         #expect(throws: WidgetConfig.Failure.self) { try config.resolve(config.instances[2], configDirectory: dir) }
 
         let entry = try WidgetConfig(instances: Array(config.instances.prefix(2))).entrySource(configDirectory: dir)
-        #expect(entry.contains(#"{ name: "a", load: () => require(""#))
+        #expect(entry.contains(#"{ name: "a", widget: "bar", load: () => require(""#))
         #expect(entry.contains(#"widgets/clock.tsx").default, screens: [1], props: {} }"#))
     }
 
@@ -75,6 +75,17 @@ struct WidgetConfigTests {
             try WidgetConfig.load(configDirectory: dir)
         }
     }
+}
+
+@MainActor
+private final class SchemaHost: RuntimeHost {
+    var schemas: [String] = []
+    var errors: [String] = []
+    func isHidden(name: String?) -> Bool { false }
+    func report(error: String) { errors.append(error) }
+    func register(name: String, defaultHidden: Bool) {}
+    func requestVisibility(_ action: String, name: String) {}
+    func schemasChanged(_ json: String) { schemas.append(json) }
 }
 
 @MainActor
@@ -115,20 +126,24 @@ private let second = ScreenInfo(id: 2, name: "Second", frame: CGRect(x: 1512, y:
 @MainActor
 @Suite(.enabled(if: (try? Bundler.locate()) != nil, "needs esbuild"))
 struct WidgetMountTests {
-    /// Broken widgets (one at module level, one in render) don't stop the others; shared modules evaluate once.
+    /// Broken widgets (one at module level, one in render) don't stop the others; shared modules evaluate once;
+    /// an invalid prop falls back to its schema default and is reported; schemas reach the host.
     @Test func instancesMountIndependentlyOnTheirScreens() throws {
         let script = try Bundler.locate().build(configDirectory: fixture)
         let backend = CountingBackend()
-        let runtime = Runtime(backend: backend, screens: [first, second])
+        let host = SchemaHost()
+        let runtime = Runtime(backend: backend, screens: [first, second], host: host)
         runtime.evaluate(script)
 
         #expect(runtime.context.evaluateScript("__test.evaluations").toInt32() == 1)
         #expect(runtime.context.evaluateScript("__test.mounted.join(',')").toString()
-            == "both@1,both@2,throws-at-load evaluated,left@1,main@1")
-        #expect(backend.liveSurfaces == 4)
+            == "both@1,both@2,throws-at-load evaluated,none@2,left@1,main@1")
+        #expect(backend.liveSurfaces == 5)
+        #expect(host.schemas == [#"{"panel":{"label":{"type":"string","default":"none"}}}"#])
+        #expect(host.errors.contains { $0.contains(#"widget "defaulted": props.label must be a string, got 5; using "none""#) })
 
         runtime.screensChanged([second])
-        #expect(backend.liveSurfaces == 1)
+        #expect(backend.liveSurfaces == 2)
 
         #expect(runtime.dispose() == .zero)
         #expect(backend.liveSurfaces == 0)

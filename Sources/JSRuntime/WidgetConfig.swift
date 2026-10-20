@@ -129,7 +129,7 @@ public struct WidgetConfig: Equatable, Sendable {
             case .main: screens = "\"main\""
             case .indices(let list): screens = "[\(list.map(String.init).joined(separator: ", "))]"
             }
-            return "  { name: \(quote(instance.name)), load: () => require(\(quote(file.path))).default, screens: \(screens), props: \(instance.props) },"
+            return "  { name: \(quote(instance.name)), widget: \(quote(instance.widget)), load: () => require(\(quote(file.path))).default, screens: \(screens), props: \(instance.props) },"
         }
         return """
         import { mount } from "halo/internal";

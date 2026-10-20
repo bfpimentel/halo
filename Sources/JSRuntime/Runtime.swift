@@ -14,11 +14,14 @@ public protocol RuntimeHost: AnyObject {
     func register(name: String, defaultHidden: Bool)
     /// `show` / `hide` / `toggle` requested by config code.
     func requestVisibility(_ action: String, name: String)
+    /// The config's `defineWidget` schemas (JSON keyed by widget name), published after every mount.
+    func schemasChanged(_ json: String)
     /// Asked by a built-in app (`halo/internal`'s `close()`) to tear its runtime down.
     func close()
 }
 
 extension RuntimeHost {
+    public func schemasChanged(_ json: String) {}
     public func close() {}
 }
 
@@ -155,6 +158,13 @@ public final class Runtime {
         if let hook, !hook.isUndefined {
             hook.call(withArguments: [infos.map(Conversions.screen)])
         }
+    }
+
+    /// Hands `halo settings` the user config's widget schemas.
+    public func deliverSchemas(_ json: String) {
+        guard !disposed else { return }
+        let hook = context.objectForKeyedSubscript("__halo")?.objectForKeyedSubscript("onSchemas")
+        if let hook, !hook.isUndefined { hook.call(withArguments: [json]) }
     }
 
     /// Surface names currently mounted; `nil` stands for unnamed surfaces.

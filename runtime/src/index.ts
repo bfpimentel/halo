@@ -58,5 +58,16 @@ export type {
   Transitions,
 } from "halo/animation";
 export type { DirEntry, ExecResult, Rect, ScreenInfo } from "halo/native";
+export { defineWidget } from "halo/widget";
+export type {
+  BooleanProp,
+  NumberProp,
+  PropSchema,
+  PropSpec,
+  PropsOf,
+  SelectProp,
+  StringProp,
+  Widget,
+} from "halo/widget";
 export { ring, sparkline } from "halo/shapes";
 export type { SparklineOptions } from "halo/shapes";

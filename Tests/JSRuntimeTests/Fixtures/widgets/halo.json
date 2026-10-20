@@ -3,6 +3,7 @@
     "both": { "widget": "panel", "props": { "label": "both" } },
     "broken-module": { "widget": "throws-at-load" },
     "broken-render": { "widget": "throws-in-render" },
+    "defaulted": { "widget": "panel", "screens": [2], "props": { "label": 5 } },
     "left-only": { "widget": "panel", "screens": [1], "props": { "label": "left" } },
     "main-only": { "widget": "panel", "screens": "main", "props": { "label": "main" } }
   }

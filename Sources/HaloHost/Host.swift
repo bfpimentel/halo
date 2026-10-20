@@ -16,6 +16,8 @@ final class Host {
     /// `halo settings`: its own runtime, so the user config's reloads (which its edits cause) never touch it.
     private var settings: Runtime?
     private lazy var settingsHost = SettingsHost(host: self)
+    /// The user config's latest widget schemas, handed to `halo settings` when it opens and on every reload.
+    private var schemas = "{}"
     private var lastEvents: [String: [String: String]] = [:]
     private var visibility = Visibility()
     private lazy var errors = ErrorPanel(backend: backend)
@@ -82,6 +84,7 @@ final class Host {
         let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), host: settingsHost, configDirectory: configDirectory)
         settings = next
         next.evaluate(script) { [bundler, configDirectory] in bundler.displayName(forSource: $0, configDirectory: configDirectory) }
+        next.deliverSchemas(schemas)
         Log.info("settings opened (\(next.counts))")
     }
 
@@ -139,6 +142,11 @@ final class Host {
 }
 
 extension Host: RuntimeHost {
+    func schemasChanged(_ json: String) {
+        schemas = json
+        settings?.deliverSchemas(json)
+    }
+
     func report(error: String) {
         showError(title: "halo · error in config", message: error)
     }

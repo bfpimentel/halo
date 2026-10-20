@@ -53,6 +53,8 @@ export interface Native {
     path: string,
     done: (entries: DirEntry[] | null, error: string | null) => void,
   ): void;
+  /** The `defineWidget` schemas of the config's loaded widgets, as JSON keyed by widget name. */
+  publishSchemas(json: string): void;
   /** Tears down this runtime; only built-in apps (`halo settings`) do anything with it. */
   close(): void;
   /** Calls `onChange` now and whenever the contents change (null while the file doesn't exist). */
@@ -97,6 +99,8 @@ export interface Native {
 export interface HostHooks {
   onScreens?: (screens: ScreenInfo[]) => void;
   onEvent?: (name: string, payload: Record<string, string>) => void;
+  /** The user config's widget schemas (JSON keyed by widget name), delivered to `halo settings`. */
+  onSchemas?: (json: string) => void;
   dispose?: () => void;
   /** Returns true when a handler consumed the event (keys then don't reach the system / text field). */
   dispatch?: (id: number, kind: string, payload: unknown) => boolean;

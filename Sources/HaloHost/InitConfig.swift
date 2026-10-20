@@ -33,27 +33,31 @@ public func initializeConfig(at path: String?) throws -> [String] {
         ("halo.json", """
         {
           "widgets": {
-            "clock": { "widget": "clock", "screens": "all", "props": { "format": "HH:mm" } }
+            "clock": { "widget": "clock", "screens": "all" }
           }
         }
 
         """),
         ("widgets/clock.tsx", """
-        import { Box, Surface, Text, type WidgetProps } from "halo";
+        import { Box, Surface, Text, defineWidget } from "halo";
         import { clock } from "halo/services";
 
-        export default ({ screen, props }: WidgetProps<{ format?: string }>) => {
-          const time = clock.format(props.format ?? "HH:mm");
-          return (
+        export default defineWidget({
+          props: {
+            format: { type: "string", default: "HH:mm", label: "Time format" },
+            size: { type: "number", default: 22, min: 10, max: 96, label: "Text size" },
+          },
+          render: ({ screen, props }) => (
             <Surface name="clock" screen={screen} anchor={["bottom", "right"]} margins={[0, 16, 16, 0]}
-                     size={{ width: 120, height: 48 }} layer="desktop"
-                     enter={{ from: { opacity: 0, scale: 0.9 }, curve: "spring" }}>
-              <Box style={{ justify: "center", align: "center", background: "#1e1e2ee0", radius: 12 }}>
-                <Text style={{ fontSize: 22, fontWeight: "semibold", color: "#cdd6f4" }}>{time}</Text>
+                     layer="desktop" enter={{ from: { opacity: 0, scale: 0.9 }, curve: "spring" }}>
+              <Box style={{ padding: [10, 16], background: "#1e1e2ee0", radius: 12 }}>
+                <Text style={{ fontSize: props.size, fontWeight: "semibold", color: "#cdd6f4" }}>
+                  {clock.format(props.format)}
+                </Text>
               </Box>
             </Surface>
-          );
-        };
+          ),
+        });
 
         """),
     ]

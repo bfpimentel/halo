@@ -1,16 +1,30 @@
-import { Box, Surface, Text, type WidgetProps } from "halo";
+import { Box, Surface, Text, defineWidget, type Edge } from "halo";
 import { clock } from "halo/services";
 import { foreground, muted, surface } from "@/demo/theme";
 
-export default function DesktopClock({
-  screen,
-  props,
-}: WidgetProps<{ time?: string; date?: string }>) {
-  return (
+const corners: Record<string, Edge[]> = {
+  "top-left": ["top", "left"],
+  "top-right": ["top", "right"],
+  "bottom-left": ["bottom", "left"],
+  "bottom-right": ["bottom", "right"],
+};
+
+export default defineWidget({
+  props: {
+    time: { type: "string", default: "HH:mm", label: "Time format" },
+    date: { type: "string", default: "EEEE, d MMMM", label: "Date format" },
+    corner: {
+      type: "select",
+      options: ["top-left", "top-right", "bottom-left", "bottom-right"],
+      default: "bottom-right",
+      label: "Corner",
+    },
+  },
+  render: ({ screen, props }) => (
     <Surface
       screen={screen}
-      anchor={["bottom", "right"]}
-      margins={[0, 24, 24, 0]}
+      anchor={corners[props.corner]}
+      margins={24}
       size={{ width: 240, height: 96 }}
       layer="desktop"
     >
@@ -24,12 +38,10 @@ export default function DesktopClock({
         }}
       >
         <Text style={{ fontSize: 40, fontWeight: "semibold", color: foreground }}>
-          {clock.format(props.time ?? "HH:mm")}
+          {clock.format(props.time)}
         </Text>
-        <Text style={{ fontSize: 13, color: muted }}>
-          {clock.format(props.date ?? "EEEE, d MMMM")}
-        </Text>
+        <Text style={{ fontSize: 13, color: muted }}>{clock.format(props.date)}</Text>
       </Box>
     </Surface>
-  );
-}
+  ),
+});

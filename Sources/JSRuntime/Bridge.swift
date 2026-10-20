@@ -64,6 +64,9 @@ enum Bridge {
         let readDir: @convention(block) (String, JSValue) -> Void = { path, callback in
             MainActor.assumeIsolated { runtime?.readDir(path, callback) }
         }
+        let publishSchemas: @convention(block) (String) -> Void = { json in
+            MainActor.assumeIsolated { runtime?.host?.schemasChanged(json) }
+        }
         let close: @convention(block) () -> Void = {
             MainActor.assumeIsolated { runtime?.host?.close() }
         }
@@ -136,6 +139,7 @@ enum Bridge {
         define("writeFile", writeFile)
         define("readDir", readDir)
         define("close", close)
+        define("publishSchemas", publishSchemas)
         define("watchFile", watchFile)
         define("unwatchFile", unwatchFile)
         define("spawn", spawn)
