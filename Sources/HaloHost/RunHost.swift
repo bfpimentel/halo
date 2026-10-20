@@ -7,7 +7,7 @@ import JSRuntime
 public func runHost(configPath: String?) -> Never {
     let directory = configPath.map { URL(fileURLWithPath: $0).standardizedFileURL } ?? defaultConfigDirectory()
     guard FileManager.default.fileExists(atPath: directory.path) else {
-        Log.error("config directory \(directory.path) does not exist (create it with a main.tsx, or pass --config <dir>)")
+        Log.error("config directory \(directory.path) does not exist (create one with `halo init`, or pass --config <dir>)")
         exit(1)
     }
 

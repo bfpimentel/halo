@@ -1,7 +1,7 @@
 // <Shape>: a CPU ring whose strokeEnd animates with a spring, with its percentage overlaid in the middle
 // (position: "absolute"), a CPU history sparkline, and a plain SVG path.
 
-import { Box, PerScreen, Shape, Surface, Text, ring, sparkline } from "halo";
+import { Box, Shape, Surface, Text, ring, sparkline, type WidgetProps } from "halo";
 import { system } from "halo/services";
 import { effect, signal, untrack } from "halo/signals";
 
@@ -85,21 +85,15 @@ function Cpu() {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) =>
-      screen.index === 1 ? (
-        <Surface
-          screen={screen}
-          anchor={["top", "right"]}
-          margins={[48, 16, 0, 0]}
-          layer="aboveMenu"
-        >
-          <Box style={{ width: 240, padding: 16, background: "#1e1e2ef0", radius: 14 }}>
-            <Cpu />
-          </Box>
-        </Surface>
-      ) : null
-    }
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <Surface
+    screen={screen}
+    anchor={["top", "right"]}
+    margins={[48, 16, 0, 0]}
+    layer="aboveMenu"
+  >
+    <Box style={{ width: 240, padding: 16, background: "#1e1e2ef0", radius: 14 }}>
+      <Cpu />
+    </Box>
+  </Surface>
 );

@@ -19,7 +19,7 @@ A `<Surface>` is a window. Its child fills it.
 
 | Prop      | Values                                                                                        |
 | --------- | --------------------------------------------------------------------------------------------- |
-| `screen`  | A display from `<PerScreen>` or `screens()`.                                                  |
+| `screen`  | A display: the widget's `screen`, or one from `<PerScreen>` / `screens()`.                    |
 | `anchor`  | Edges to pin to: `top`, `bottom`, `left`, `right`. None centers it.                           |
 | `margins` | `8`, `[vertical, horizontal]` or `[top, right, bottom, left]`.                                |
 | `size`    | Per axis: points, `"fill"` (between two anchors) or `"auto"` (fits the content, the default). |
@@ -36,6 +36,9 @@ Empty parts of an interactive surface let clicks through. Widgets never activate
 while you type into a `keyboard` surface.
 
 ## One per display
+
+Widgets already get one instance per display (`screens` in `halo.json`). Inside a widget, `<PerScreen>` does the
+same for any subtree:
 
 ```tsx
 <PerScreen>{(screen) => <Bar screen={screen} />}</PerScreen>

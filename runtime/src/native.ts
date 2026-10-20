@@ -18,6 +18,12 @@ export interface ScreenInfo {
   notch: Rect | null;
 }
 
+/** One entry of `readDir()`. */
+export interface DirEntry {
+  name: string;
+  isDirectory: boolean;
+}
+
 /** What `exec()` and `sh()` resolve with. */
 export interface ExecResult {
   stdout: string;
@@ -43,6 +49,12 @@ export interface Native {
   exec(command: string, args: string[], done: (result: ExecResult) => void): void;
   readFile(path: string, done: (text: string | null, error: string | null) => void): void;
   writeFile(path: string, text: string, done: (error: string | null) => void): void;
+  readDir(
+    path: string,
+    done: (entries: DirEntry[] | null, error: string | null) => void,
+  ): void;
+  /** Tears down this runtime; only built-in apps (`halo settings`) do anything with it. */
+  close(): void;
   /** Calls `onChange` now and whenever the contents change (null while the file doesn't exist). */
   watchFile(path: string, onChange: (text: string | null) => void): number;
   unwatchFile(id: number): void;

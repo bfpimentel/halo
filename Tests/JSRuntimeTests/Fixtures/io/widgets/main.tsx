@@ -1,4 +1,4 @@
-import { readFile, spawn, watchFile, writeFile } from "halo";
+import { readDir, readFile, spawn, watchFile, writeFile } from "halo";
 import { effect } from "halo/signals";
 
 const { dir } = (globalThis as any).__input as { dir: string };
@@ -11,6 +11,7 @@ const state = {
   read: "",
   written: false,
   failures: [] as string[],
+  listing: [] as string[],
 };
 (globalThis as any).__test = state;
 
@@ -32,6 +33,12 @@ writeFile(`${dir}/nested/out.txt`, "hi").then(
   (error) => state.failures.push(String(error)),
 );
 readFile(`${dir}/missing.txt`).catch(() => state.failures.push("missing"));
+readDir(dir).then((entries) =>
+  state.listing.push(
+    ...entries.map((entry) => `${entry.name}${entry.isDirectory ? "/" : ""}`),
+  ),
+);
+readDir(`${dir}/missing`).catch(() => state.failures.push("missing dir"));
 
 const watched = watchFile(`${dir}/watched.txt`);
 effect(() => state.watched.push(watched() ?? null));

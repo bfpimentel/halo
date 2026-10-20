@@ -83,9 +83,28 @@ function demo(name: string, root: string, label: string): string {
   return "";
 }
 
+/** An example's halo.json first, then its .ts/.tsx files (top level before widgets/), as paths relative to it. */
+function sourceFiles(folder: string, prefix = ""): string[] {
+  const entries = readdirSync(join(folder, prefix), { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && /\.tsx?$|^halo\.json$/.test(entry.name))
+    .map((entry) => prefix + entry.name)
+    .sort((a, b) =>
+      a.endsWith("halo.json") ? -1 : b.endsWith("halo.json") ? 1 : a.localeCompare(b),
+    );
+  const folders = entries
+    .filter((entry) => entry.isDirectory() && entry.name !== "node_modules")
+    .map((entry) => entry.name)
+    .sort();
+  return [
+    ...files,
+    ...folders.flatMap((name) => sourceFiles(folder, `${prefix}${name}/`)),
+  ];
+}
+
 /**
  * The gallery and one page per example. Order and descriptions come from the table in examples/README.md (also what
- * GitHub shows); an example's own README.md adds setup notes; every .ts/.tsx file is shown in full.
+ * GitHub shows); an example's own README.md adds setup notes; halo.json and every .ts/.tsx file are shown in full.
  */
 function examples(): Page[] {
   const table = readFileSync(join(examplesDir, "README.md"), "utf8");
@@ -107,16 +126,13 @@ function examples(): Page[] {
       manifest[name]?.title ??
       name.charAt(0).toUpperCase() + name.slice(1);
     const description = marked.parseInline(text, { async: false });
-    const files = readdirSync(folder)
-      .filter((file) => /\.tsx?$/.test(file))
-      .sort((a, b) =>
-        a === "main.tsx" ? -1 : b === "main.tsx" ? 1 : a.localeCompare(b),
-      );
+    const files = sourceFiles(folder);
     const sources = files
       .map((file) => {
         const code = readFileSync(join(folder, file), "utf8");
         const href = `${github}/blob/main/examples/${name}/${file}`;
-        return `<h3 id="${slug(file)}"><a href="${href}"><code>${file}</code></a></h3>${prose("```tsx\n" + code + "\n```")}`;
+        const language = file.endsWith(".json") ? "json" : "tsx";
+        return `<h3 id="${slug(file)}"><a href="${href}"><code>${file}</code></a></h3>${prose("```" + language + "\n" + code + "\n```")}`;
       })
       .join("");
     const run = prose(

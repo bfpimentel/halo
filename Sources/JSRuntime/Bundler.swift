@@ -1,6 +1,6 @@
 import Foundation
 
-/// Compiles a config directory's `main.tsx` (plus the halo runtime library) into one script with esbuild.
+/// Compiles a config directory's widgets (plus the halo runtime library) into one script with esbuild.
 public struct Bundler: Sendable {
     public struct Failure: Error, CustomStringConvertible {
         public let description: String
@@ -65,17 +65,28 @@ public struct Bundler: Sendable {
         return absolute.hasPrefix(runtime) ? "halo/" + absolute.dropFirst(runtime.count) : source
     }
 
+    /// Builds a config directory's `halo.json` widgets.
     public func build(configDirectory: URL) throws -> String {
-        let main = configDirectory.appendingPathComponent("main.tsx").path
-        let quotedMain = String(decoding: try JSONEncoder().encode(main), as: UTF8.self)
-        let entry = """
-        import { mount } from "halo/internal";
-        import * as config from \(quotedMain);
-        mount(config.default);
-        """
+        do {
+            let entry = try WidgetConfig.load(configDirectory: configDirectory).entrySource(configDirectory: configDirectory)
+            return try build(entry: entry, directory: configDirectory)
+        } catch let failure as WidgetConfig.Failure {
+            throw Failure(description: failure.description)
+        }
+    }
+
+    /// The built-in config editor (`halo settings`), a widget in `runtime/src/settings`.
+    public func buildSettings(configDirectory: URL) throws -> String {
+        let app = runtimeSources.appendingPathComponent("settings/app.tsx")
+        let entry = WidgetConfig.entrySource([(WidgetConfig.Instance(name: "settings", widget: "settings", screens: .main), app)])
+        return try build(entry: entry, directory: configDirectory)
+    }
+
+    /// Bundles `entry` (TypeScript), resolving its relative imports and tsconfig from `directory`.
+    public func build(entry: String, directory: URL) throws -> String {
         let process = Process()
         process.executableURL = esbuild
-        process.currentDirectoryURL = configDirectory
+        process.currentDirectoryURL = directory
         process.arguments = [
             "--bundle",
             "--format=iife",

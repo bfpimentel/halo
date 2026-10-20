@@ -25,30 +25,24 @@ Nix: `inputs.halo.url = "github:bfpimentel/halo"` with `services.halo.enable = t
 
 ## A widget
 
+```json
+// ~/.config/halo/halo.json
+{ "widgets": { "clock": { "widget": "clock", "screens": "all" } } }
+```
+
 ```tsx
-// ~/.config/halo/main.tsx
-import { Box, PerScreen, Surface, Text } from "halo";
+// ~/.config/halo/widgets/clock.tsx
+import { Box, Surface, Text, type WidgetProps } from "halo";
 import { clock } from "halo/services";
 
 const time = clock.format("HH:mm");
 
-export default () => (
-  <PerScreen>
-    {(screen) => (
-      <Surface
-        screen={screen}
-        anchor={["bottom", "right"]}
-        margins={[0, 16, 16, 0]}
-        layer="desktop"
-      >
-        <Box style={{ padding: [10, 16], background: "#1e1e2ee0", radius: 12 }}>
-          <Text style={{ fontSize: 22, fontWeight: "bold", color: "#cdd6f4" }}>
-            {time}
-          </Text>
-        </Box>
-      </Surface>
-    )}
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <Surface screen={screen} anchor={["bottom", "right"]} margins={[0, 16, 16, 0]} layer="desktop">
+    <Box style={{ padding: [10, 16], background: "#1e1e2ee0", radius: 12 }}>
+      <Text style={{ fontSize: 22, fontWeight: "bold", color: "#cdd6f4" }}>{time}</Text>
+    </Box>
+  </Surface>
 );
 ```
 

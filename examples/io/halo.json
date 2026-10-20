@@ -1,0 +1,5 @@
+{
+  "widgets": {
+    "io": { "widget": "io", "screens": "main" }
+  }
+}

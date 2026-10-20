@@ -1,4 +1,4 @@
-import { native, type ExecResult } from "halo/native";
+import { native, type DirEntry, type ExecResult } from "halo/native";
 import {
   endScope,
   getOwner,
@@ -25,8 +25,8 @@ function logger(level: "log" | "warn" | "error") {
   return (...values: unknown[]) => native.log(level, values.map(format).join(" "));
 }
 
-export function reportError(error: unknown): void {
-  native.log("error", format(error));
+export function reportError(error: unknown, context?: string): void {
+  native.log("error", context ? `${context}: ${format(error)}` : format(error));
 }
 
 function guarded(fn: (...args: unknown[]) => void, args: unknown[]) {
@@ -98,6 +98,15 @@ export function writeFile(path: string, text: string): Promise<void> {
   return new Promise((resolve, reject) =>
     native.writeFile(path, text, (error) =>
       error === null ? resolve() : reject(new Error(error)),
+    ),
+  );
+}
+
+/** Lists a folder (sorted by name). Paths work like `readFile`'s. Rejects when it can't be read. */
+export function readDir(path: string): Promise<DirEntry[]> {
+  return new Promise((resolve, reject) =>
+    native.readDir(path, (entries, error) =>
+      entries === null ? reject(new Error(error ?? path)) : resolve(entries),
     ),
   );
 }

@@ -13,6 +13,9 @@ final class Host {
     private var watcher: ConfigWatcher?
     private var server: IPCServer?
     private var runtime: Runtime?
+    /// `halo settings`: its own runtime, so the user config's reloads (which its edits cause) never touch it.
+    private var settings: Runtime?
+    private lazy var settingsHost = SettingsHost(host: self)
     private var lastEvents: [String: [String: String]] = [:]
     private var visibility = Visibility()
     private lazy var errors = ErrorPanel(backend: backend)
@@ -26,7 +29,10 @@ final class Host {
         server = try IPCServer(path: socketPath) { [weak self] request in
             self?.handle(request) ?? Response(ok: false, error: "host is shutting down")
         }
-        screens = Screens { [weak self] in self?.runtime?.screensChanged($0) }
+        screens = Screens { [weak self] in
+            self?.runtime?.screensChanged($0)
+            self?.settings?.screensChanged($0)
+        }
         watcher = ConfigWatcher(directory: configDirectory) { [weak self] in self?.reload() }
         reload()
     }
@@ -55,6 +61,7 @@ final class Host {
 
     func shutdown() {
         errors.dismiss()
+        closeSettings()
         disposeRuntime()
         server?.stop()
         server = nil
@@ -66,6 +73,24 @@ final class Host {
         runtime = nil
         let leaked = previous.dispose()
         if leaked != .zero { Log.warn("previous config left \(leaked) alive after its cleanups; released them") }
+    }
+
+    /// Opens the settings editor, or closes it when it's open.
+    func toggleSettings() throws {
+        guard settings == nil else { return closeSettings() }
+        let script = try bundler.buildSettings(configDirectory: configDirectory)
+        let next = Runtime(backend: backend, screens: screens?.all ?? Screens.snapshot(), host: settingsHost, configDirectory: configDirectory)
+        settings = next
+        next.evaluate(script) { [bundler, configDirectory] in bundler.displayName(forSource: $0, configDirectory: configDirectory) }
+        Log.info("settings opened (\(next.counts))")
+    }
+
+    func closeSettings() {
+        guard let previous = settings else { return }
+        settings = nil
+        let leaked = previous.dispose()
+        if leaked != .zero { Log.warn("settings left \(leaked) alive after its cleanups; released them") }
+        Log.info("settings closed")
     }
 
     private func changeVisibility(_ action: VisibilityAction, _ target: VisibilityTarget) throws {
@@ -89,8 +114,18 @@ final class Host {
             }
         case .inspect:
             guard let runtime else { return Response(ok: false, error: "no config loaded") }
-            let data = try? JSONSerialization.data(withJSONObject: runtime.inspect(), options: [.prettyPrinted, .sortedKeys])
+            var tree = runtime.inspect()
+            if let settings { tree["settings"] = settings.inspect() }
+            let data = try? JSONSerialization.data(withJSONObject: tree, options: [.prettyPrinted, .sortedKeys])
             return Response(ok: true, output: data.map { String(decoding: $0, as: UTF8.self) })
+        case .settings:
+            do {
+                try toggleSettings()
+                return .success
+            } catch {
+                Log.error("settings failed to build:\n\(error)")
+                return Response(ok: false, error: "settings failed to build: \(error)")
+            }
         case .reload:
             return reload() ? .success : Response(ok: false, error: "build failed; see `halo log`")
         case .quit:
@@ -128,5 +163,23 @@ extension Host: RuntimeHost {
         } catch {
             Log.warn("\(action.rawValue)(\"\(name)\"): \(error)")
         }
+    }
+}
+
+/// The settings runtime's host: errors go to the same panel, its surfaces are never hidden by name, and its own
+/// `close()` (Esc, the close button) tears it down. Closing waits a run-loop turn: the call comes from inside its JS.
+@MainActor
+private final class SettingsHost: RuntimeHost {
+    private unowned let host: Host
+
+    init(host: Host) { self.host = host }
+
+    func report(error: String) { host.report(error: error) }
+    func isHidden(name: String?) -> Bool { false }
+    func register(name: String, defaultHidden: Bool) {}
+    func requestVisibility(_ action: String, name: String) { host.requestVisibility(action, name: name) }
+
+    func close() {
+        DispatchQueue.main.async { [host] in MainActor.assumeIsolated { host.closeSettings() } }
     }
 }

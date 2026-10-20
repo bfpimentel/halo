@@ -2,7 +2,7 @@
 // throttling chips when they apply), the last wake from sleep, and a volume OSD that appears when the volume or
 // mute changes. Scroll over the volume chip to change it.
 
-import { Box, Image, PerScreen, Surface, Text, type ScreenInfo } from "halo";
+import { Box, Image, Surface, Text, type ScreenInfo, type WidgetProps } from "halo";
 import { audio, battery, frontApp, network, power, session, system } from "halo/services";
 import { computed, effect, signal, untrack } from "halo/signals";
 
@@ -190,13 +190,9 @@ function VolumeOsd(props: { screen: ScreenInfo }) {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) => (
-      <>
-        <Status screen={screen} />
-        <VolumeOsd screen={screen} />
-      </>
-    )}
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <>
+    <Status screen={screen} />
+    <VolumeOsd screen={screen} />
+  </>
 );

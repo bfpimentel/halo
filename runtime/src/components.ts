@@ -542,6 +542,14 @@ globalThis.__halo.onScreens = (list) => screenList.set(list);
 /** The connected displays, updated when displays change. */
 export const screens: Accessor<ScreenInfo[]> = screenList;
 
+/** What a widget's default export receives, once per screen its `halo.json` instance shows on. */
+export interface WidgetProps<P = Record<string, unknown>> {
+  /** The display this copy of the widget is on. */
+  screen: ScreenInfo;
+  /** The instance's `props` from `halo.json`. */
+  props: P;
+}
+
 /** Props of `<PerScreen>`. */
 export interface PerScreenProps {
   /** Called once per display; return its surfaces. */

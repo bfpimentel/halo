@@ -1,0 +1,12 @@
+{
+  "widgets": {
+    "top-bar": { "widget": "top-bar" },
+    "clock": { "widget": "clock", "props": { "time": "HH:mm", "date": "EEEE, d MMMM" } },
+    "dock": {
+      "widget": "dock",
+      "props": { "apps": ["com.apple.finder", "com.apple.Safari", "com.apple.Terminal"] }
+    },
+    "osd": { "widget": "osd" },
+    "load": { "widget": "load" }
+  }
+}

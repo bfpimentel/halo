@@ -16,6 +16,7 @@ public enum Request: Codable, Equatable, Sendable {
     case reload
     case quit
     case inspect
+    case settings
 }
 
 public struct Response: Codable, Equatable, Sendable {
@@ -54,9 +55,10 @@ public enum IPC {
     usage: halo <command>
 
       start [--config <dir>]           run the host in the foreground (default config: $XDG_CONFIG_HOME/halo)
-      init [<dir>]                     create a config dir with a starter main.tsx and editor types
+      init [<dir>]                     create a config dir with a starter halo.json, widget and editor types
       trigger <name> [key=value ...]   emit an external signal event
       show|hide|toggle <name ...>      show, hide or toggle surfaces by name (`--all` for every surface)
+      settings                         open or close the halo.json editor
       reload                           rebuild and remount the config
       quit                             stop the host
       inspect                          print the running surfaces and node trees as JSON
@@ -114,6 +116,8 @@ public enum IPC {
             return .initialize(directory: rest.first)
         case "inspect" where rest.isEmpty:
             return .send(.inspect)
+        case "settings" where rest.isEmpty:
+            return .send(.settings)
         case "reload" where rest.isEmpty:
             return .send(.reload)
         case "quit" where rest.isEmpty:

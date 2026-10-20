@@ -1,4 +1,4 @@
-import { Box, PerScreen, Surface, Text } from "halo";
+import { Box, Surface, Text, type WidgetProps } from "halo";
 import { clock } from "halo/services";
 import { computed, signal } from "halo/signals";
 
@@ -60,12 +60,8 @@ function Showcase() {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) => (
-      <Surface screen={screen} size={{ width: 360, height: 210 }} layer="aboveMenu">
-        <Showcase />
-      </Surface>
-    )}
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <Surface screen={screen} size={{ width: 360, height: 210 }} layer="aboveMenu">
+    <Showcase />
+  </Surface>
 );

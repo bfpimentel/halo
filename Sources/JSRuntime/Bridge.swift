@@ -61,6 +61,12 @@ enum Bridge {
         let writeFile: @convention(block) (String, String, JSValue) -> Void = { path, text, callback in
             MainActor.assumeIsolated { runtime?.writeFile(path, text, callback) }
         }
+        let readDir: @convention(block) (String, JSValue) -> Void = { path, callback in
+            MainActor.assumeIsolated { runtime?.readDir(path, callback) }
+        }
+        let close: @convention(block) () -> Void = {
+            MainActor.assumeIsolated { runtime?.host?.close() }
+        }
         let watchFile: @convention(block) (String, JSValue) -> Int = { path, callback in
             MainActor.assumeIsolated { runtime?.watchFile(path, callback) ?? 0 }
         }
@@ -128,6 +134,8 @@ enum Bridge {
         define("exec", exec)
         define("readFile", readFile)
         define("writeFile", writeFile)
+        define("readDir", readDir)
+        define("close", close)
         define("watchFile", watchFile)
         define("unwatchFile", unwatchFile)
         define("spawn", spawn)

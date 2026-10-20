@@ -57,4 +57,4 @@ returns `false` there.
 - `system` has no notification to follow, so it samples; pick the slowest interval you can live with.
 
 Reference: [`halo/services`](../reference/halo-services.html). Full example:
-[`examples/services`](https://github.com/bfpimentel/halo/blob/main/examples/services/main.tsx).
+[`examples/services`](https://github.com/bfpimentel/halo/blob/main/examples/services/widgets/services.tsx).

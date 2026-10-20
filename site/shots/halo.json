@@ -1,0 +1,6 @@
+{
+  "widgets": {
+    "site": { "widget": "site", "screens": "main" },
+    "docs": { "widget": "docs", "screens": "main" }
+  }
+}

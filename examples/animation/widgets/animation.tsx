@@ -6,13 +6,13 @@ import {
   Box,
   For,
   Image,
-  PerScreen,
   Surface,
   Text,
   animate,
   tween,
   type NativeNode,
   type ScreenInfo,
+  type WidgetProps,
 } from "halo";
 import { signal } from "halo/signals";
 
@@ -165,15 +165,11 @@ function Toast(props: { screen: ScreenInfo }) {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) => (
-      <>
-        <Surface screen={screen} size={{ width: 380, height: 220 }} layer="aboveMenu">
-          <Showcase />
-        </Surface>
-        <Toast screen={screen} />
-      </>
-    )}
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <>
+    <Surface screen={screen} size={{ width: 380, height: 220 }} layer="aboveMenu">
+      <Showcase />
+    </Surface>
+    <Toast screen={screen} />
+  </>
 );

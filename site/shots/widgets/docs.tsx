@@ -16,6 +16,7 @@ import {
   tween,
   type NativeNode,
   type ScreenInfo,
+  type WidgetProps,
 } from "halo";
 import { clock } from "halo/services";
 import { computed, externalSignal, signal } from "halo/signals";
@@ -655,8 +656,7 @@ function Trigger() {
   );
 }
 
-export function DocShots(props: { screen: ScreenInfo }) {
-  const screen = props.screen;
+export default function DocShots({ screen }: WidgetProps) {
   return (
     <>
       <Shot name="starter" screen={screen} top={60} left={1000}>

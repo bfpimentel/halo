@@ -5,13 +5,13 @@
 
 import {
   Box,
-  PerScreen,
   Surface,
   Text,
   readFile,
   spawn,
   watchFile,
   writeFile,
+  type WidgetProps,
 } from "halo";
 import { signal } from "halo/signals";
 
@@ -71,32 +71,26 @@ function Note() {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) =>
-      screen.index === 1 ? (
-        <Surface
-          screen={screen}
-          anchor={["top", "right"]}
-          margins={[48, 16, 0, 0]}
-          layer="aboveMenu"
-          input="interactive"
-        >
-          <Box
-            style={{
-              width: 260,
-              padding: 16,
-              gap: 12,
-              background: "#1e1e2ef0",
-              radius: 14,
-            }}
-          >
-            <Counter />
-            <Latency />
-            <Note />
-          </Box>
-        </Surface>
-      ) : null
-    }
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <Surface
+    screen={screen}
+    anchor={["top", "right"]}
+    margins={[48, 16, 0, 0]}
+    layer="aboveMenu"
+    input="interactive"
+  >
+    <Box
+      style={{
+        width: 260,
+        padding: 16,
+        gap: 12,
+        background: "#1e1e2ef0",
+        radius: 14,
+      }}
+    >
+      <Counter />
+      <Latency />
+      <Note />
+    </Box>
+  </Surface>
 );

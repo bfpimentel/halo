@@ -29,10 +29,20 @@ export type {
   Reactive,
   SurfaceProps,
   TextStyle,
+  WidgetProps,
 } from "halo/components";
 export { hide, show, toggle } from "halo/events";
 export type { ClickEvent, DropEvent, KeyEvent, ScrollEvent } from "halo/events";
-export { exec, poll, readFile, sh, spawn, watchFile, writeFile } from "halo/host";
+export {
+  exec,
+  poll,
+  readDir,
+  readFile,
+  sh,
+  spawn,
+  watchFile,
+  writeFile,
+} from "halo/host";
 export type { SpawnOptions, Spawned } from "halo/host";
 export { animate, onFrame, tween } from "halo/animation";
 export type {
@@ -47,6 +57,6 @@ export type {
   ShapeTransitionKey,
   Transitions,
 } from "halo/animation";
-export type { ExecResult, Rect, ScreenInfo } from "halo/native";
+export type { DirEntry, ExecResult, Rect, ScreenInfo } from "halo/native";
 export { ring, sparkline } from "halo/shapes";
 export type { SparklineOptions } from "halo/shapes";

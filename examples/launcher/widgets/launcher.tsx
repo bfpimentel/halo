@@ -10,7 +10,6 @@ import {
   Box,
   Image,
   Input,
-  PerScreen,
   Surface,
   Text,
   exec,
@@ -19,6 +18,7 @@ import {
   show,
   type NativeNode,
   type ScreenInfo,
+  type WidgetProps,
 } from "halo";
 import { clock } from "halo/services";
 import { computed, signal } from "halo/signals";
@@ -221,13 +221,9 @@ function CornerButton(props: { screen: ScreenInfo }) {
   );
 }
 
-export default () => (
-  <PerScreen>
-    {(screen) => (
-      <>
-        <Launcher screen={screen} />
-        <CornerButton screen={screen} />
-      </>
-    )}
-  </PerScreen>
+export default ({ screen }: WidgetProps) => (
+  <>
+    <Launcher screen={screen} />
+    <CornerButton screen={screen} />
+  </>
 );

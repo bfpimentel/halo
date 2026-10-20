@@ -82,8 +82,45 @@ Update with `nix flake update halo` and rebuild: each release pins itself in the
 halo init
 ```
 
-Creates `~/.config/halo/main.tsx` and a `tsconfig.json` that gives your editor halo's types. `main.tsx` default-exports
-a component; everything it renders is on screen.
+Creates `~/.config/halo` with a `halo.json`, a starter widget in `widgets/clock.tsx`, and a `tsconfig.json` that gives
+your editor halo's types.
+
+## Widgets and halo.json
+
+A widget is a file in `widgets/` (`widgets/<name>.tsx`, or `widgets/<name>/index.tsx` when it spans several files).
+`halo.json` lists what's on screen:
+
+```json
+{
+  "widgets": {
+    "bar": { "widget": "bar", "props": { "height": 32 } },
+    "clock": { "widget": "clock", "screens": [1] },
+    "clock-big": { "widget": "clock", "screens": [2], "props": { "size": 48 } }
+  }
+}
+```
+
+| Field     | Meaning                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| key       | The instance's name, shown in errors. One widget can have several instances.                     |
+| `widget`  | Required. The file in `widgets/` to mount.                                                       |
+| `screens` | `"all"` (default), `"main"` (the menu-bar display) or 1-based display indices (`ScreenInfo.index`). |
+| `props`   | JSON handed to the widget. Default `{}`.                                                         |
+
+The widget's default export runs once per display it shows on and returns its surfaces:
+
+```tsx
+import { Surface, Text, type WidgetProps } from "halo";
+
+export default ({ screen, props }: WidgetProps<{ size?: number }>) => (
+  <Surface screen={screen} anchor={["top"]}>
+    <Text style={{ fontSize: props.size ?? 22 }}>hello</Text>
+  </Surface>
+);
+```
+
+Share state between widgets through a module both import (its top-level code runs once). A widget that throws is
+reported by name; the others keep running.
 
 ## Run
 
@@ -95,6 +132,18 @@ halo start
 
 Edits under the config folder reload on save. A build error keeps the previous version running and shows a panel in
 the corner; runtime errors show there too, with your file and line. Full output: `halo log`.
+
+## Settings
+
+```bash
+halo settings
+```
+
+With halo running, opens an editor for `halo.json` (run it again, press Esc or click Close to dismiss). Add instances from the widgets in
+`widgets/`, rename, duplicate or remove them, pick their screens, and edit string, number and boolean props; nested
+props stay in the file. Every change is saved at once, so the widgets reload as you edit. Text fields apply on Enter.
+
+<video src="../assets/settings.mp4" autoplay loop muted playsinline aria-label="halo settings: editing a clock's format, size and color, then adding, renaming and removing instances"></video>
 
 ## Start at login
 

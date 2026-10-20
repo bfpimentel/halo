@@ -11,7 +11,7 @@ func offMain<T: Sendable>(_ work: @escaping @Sendable () -> T, then done: @escap
     }
 }
 
-/// `readFile`, `writeFile` and `watchFile` (see `runtime/src/host.ts`). I/O runs off the main thread; callbacks run on main.
+/// `readFile`, `writeFile`, `readDir` and `watchFile` (see `runtime/src/host.ts`). I/O runs off the main thread; callbacks run on main.
 extension Runtime {
     /// `~` is the home folder; relative paths start at the config folder.
     func resolvePath(_ path: String) -> URL {
@@ -54,6 +54,33 @@ extension Runtime {
             guard let self, let callback = self.pendingFileCallbacks.removeValue(forKey: id) else { return }
             callback.call(withArguments: [error.map { $0 as Any } ?? NSNull()])
         })
+    }
+
+    /// Calls `callback(entries | null, error | null)`; entries are `{ name, isDirectory }`, sorted by name.
+    func readDir(_ path: String, _ callback: JSValue) {
+        guard !disposed else { return }
+        let url = resolvePath(path)
+        let id = makeID()
+        pendingFileCallbacks[id] = callback
+        offMain({
+            Result { () -> [Entry] in
+                try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
+                    .map { Entry(name: $0.lastPathComponent, isDirectory: (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true) }
+                    .sorted { $0.name < $1.name }
+            }.mapError { Self.describe($0, url) }
+        }, then: { [weak self] result in
+            guard let self, let callback = self.pendingFileCallbacks.removeValue(forKey: id) else { return }
+            switch result {
+            case .success(let entries):
+                callback.call(withArguments: [entries.map { ["name": $0.name, "isDirectory": $0.isDirectory] }, NSNull()])
+            case .failure(let error): callback.call(withArguments: [NSNull(), error.message])
+            }
+        })
+    }
+
+    struct Entry: Sendable {
+        let name: String
+        let isDirectory: Bool
     }
 
     /// Calls `callback(text | null)` now and whenever the file's contents change (null while it doesn't exist).

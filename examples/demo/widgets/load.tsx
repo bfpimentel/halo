@@ -1,11 +1,11 @@
-import { Box, Text, exec, poll } from "halo";
+import { Box, Surface, Text, exec, poll, type WidgetProps } from "halo";
 import { computed, signal, untrack } from "halo/signals";
 
 const SAMPLES = 30;
 const GRAPH_HEIGHT = 36;
 
-/// 1-minute load average as a number, a color that follows it, and a rolling sparkline.
-export function LoadGraph() {
+// 1-minute load average as a number, a color that follows it, and a rolling sparkline.
+function LoadGraph() {
   const raw = poll("sysctl -n vm.loadavg", 2000, "{ 0 0 0 }");
   const load = computed(
     () => Number(raw().replace(/[{}]/g, "").trim().split(/\s+/)[0]) || 0,
@@ -53,5 +53,19 @@ export function LoadGraph() {
         }
       </Box>
     </Box>
+  );
+}
+
+export default function Load({ screen }: WidgetProps) {
+  return (
+    <Surface
+      screen={screen}
+      anchor={["top", "right"]}
+      margins={[48, 8, 0, 0]}
+      size={{ width: 220, height: 96 }}
+      layer="aboveMenu"
+    >
+      <LoadGraph />
+    </Surface>
   );
 }

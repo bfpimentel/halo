@@ -14,6 +14,12 @@ public protocol RuntimeHost: AnyObject {
     func register(name: String, defaultHidden: Bool)
     /// `show` / `hide` / `toggle` requested by config code.
     func requestVisibility(_ action: String, name: String)
+    /// Asked by a built-in app (`halo/internal`'s `close()`) to tear its runtime down.
+    func close()
+}
+
+extension RuntimeHost {
+    public func close() {}
 }
 
 /// One loaded config: a JSContext plus every native object it created, all released by `dispose()`.

@@ -49,7 +49,8 @@ struct IOTests {
         #expect(await waitUntil { state(runtime)["read"] as? String == "hello" })
         #expect(await waitUntil { state(runtime)["written"] as? Bool == true })
         #expect(try String(contentsOf: dir.appendingPathComponent("nested/out.txt"), encoding: .utf8) == "hi")
-        #expect(await waitUntil { strings(runtime, "failures") == ["missing"] })
+        #expect(await waitUntil { Set(strings(runtime, "failures")) == ["missing", "missing dir"] })
+        #expect(strings(runtime, "listing").starts(with: ["data.txt"]))
 
         #expect(await waitUntil { strings(runtime, "watched") == ["<none>"] })
         try "one".write(to: watched, atomically: true, encoding: .utf8)
