@@ -14,6 +14,10 @@ public final class Input: Node {
     /// fallback name when there's no event. Returning true stops the field's default behavior.
     public var onKey: ((NSEvent?, String) -> Bool)?
     public var autofocus = false
+    /// Exits of ancestors still playing: the field stays up until the last one ends.
+    var exitHolds = 0
+    /// `focus()` came before the field was mounted (same pass as the mount, or before its first layout).
+    private var focusOnMount = false
 
     public var value: String {
         get { field.stringValue }
@@ -96,23 +100,49 @@ public final class Input: Node {
     }
 
     public func focus() {
-        field.window?.makeFirstResponder(field)
+        guard let window = field.window else { return focusOnMount = true }
+        window.makeFirstResponder(field)
     }
 
     override func detachNativeViews() {
-        mountedView.removeFromSuperview()
-        field.removeFromSuperview()
-        wrappers.removeAll()
+        guard exitHolds == 0 else { return }
+        unmount()
         super.detachNativeViews()
     }
 
-    override func applyFrames() {
-        super.applyFrames()
+    func exitEnded() {
+        exitHolds -= 1
+        if exitHolds == 0 { unmount() }
+    }
+
+    /// A focused field hands the keys back to the surface, which would otherwise leave them with the window.
+    private func unmount() {
+        focusOnMount = false
+        let window = field.window
+        let focused = field.currentEditor() != nil
+        mountedView.removeFromSuperview()
+        field.removeFromSuperview()
+        wrappers.removeAll()
+        if focused, let window, window.firstResponder === window { window.makeFirstResponder(window.contentView) }
+    }
+
+    isolated deinit {
+        unmount()
+    }
+
+    /// `autofocus` also counts appearing in a surface that already has focus.
+    override func didApplyFrame() {
         guard let root = rootOwner else { return }
+        let mounting = mountedView.window == nil
         root.attachView?(mountedView)
         let frame = frameInRoot
         let height = lineHeight
         field.frame = CGRect(x: frame.minX, y: frame.minY + (frame.height - height) / 2, width: frame.width, height: height)
+        guard let window = field.window else { return }
+        if focusOnMount || (mounting && autofocus && window.isKeyWindow) {
+            focusOnMount = false
+            window.makeFirstResponder(field)
+        }
     }
 
     fileprivate var lineHeight: CGFloat {

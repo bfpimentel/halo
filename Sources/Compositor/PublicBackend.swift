@@ -63,7 +63,8 @@ private final class ContentView: NSView, NSDraggingSource {
     required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { true }
-    override var acceptsFirstResponder: Bool { true }
+    /// Clicks on the surface around an editing field (result rows, buttons) leave the field focused.
+    override var acceptsFirstResponder: Bool { !(window?.firstResponder is NSText) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func updateTrackingAreas() {

@@ -421,7 +421,7 @@ export interface InputProps {
   /** The text; pass the signal you update in `onInput`. */
   value?: Reactive<string>;
   placeholder?: Reactive<string>;
-  /** Take focus whenever its surface does. */
+  /** Take focus whenever its surface does, and when it appears in a surface that has focus. */
   autofocus?: boolean;
   style?: StyleProp<TextStyle>;
   /** Every edit, with the new text. */
@@ -450,7 +450,7 @@ export function Input(props: InputProps): NativeNode {
   return node;
 }
 
-/** Moves keyboard focus into an `<Input>` (its surface must have focus). */
+/** Moves keyboard focus into an `<Input>` (its surface must have focus); right after a mount, it lands once the field is up. */
 export function focus(node: NativeNode): void {
   native.focus(node.id);
 }

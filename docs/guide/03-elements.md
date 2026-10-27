@@ -150,6 +150,10 @@ A native text field. Needs `input="keyboard"` on its surface.
 It has the usual macOS editing shortcuts: ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z and ⌘⇧Z. `onKeyDown` gets every editing key with
 modifiers, those shortcuts included; return `true` to stop the default.
 
+`autofocus` takes focus whenever the surface does and when the field appears in a focused surface. `focus(node)` works
+right after mounting too, from a `ref` or `onFocus`. Clicking elsewhere on the surface (a result row, a button) leaves
+the field focused.
+
 ## Events
 
 `onClick`, `onHover`, `onScroll` on Box, Text, Image and Shape. An event goes to the deepest element under the pointer that

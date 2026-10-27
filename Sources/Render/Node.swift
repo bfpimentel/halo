@@ -61,8 +61,9 @@ public class Node {
         insert(child, at: children.count)
     }
 
+    /// Moving a node keeps its fields mounted (and focused); they follow it on the next layout pass.
     public func insert(_ child: Node, at index: Int) {
-        child.removeFromParent()
+        child.unlink()
         let index = min(max(index, 0), children.count)
         children.insert(child, at: index)
         child.parent = self
@@ -72,20 +73,28 @@ public class Node {
         invalidate()
     }
 
+    /// Also detaches the subtree's fields when the parent is already gone (freed during its own exit).
     public func removeFromParent() {
+        unlink()
+        detachNativeViews()
+    }
+
+    private func unlink() {
         guard let parent, let index = parent.children.firstIndex(where: { $0 === self }) else { return }
         parent.children.remove(at: index)
         YGNodeRemoveChild(parent.yoga, yoga)
         layer.removeFromSuperlayer()
         self.parent = nil
         parent.invalidate()
-        detachNativeViews()
     }
 
     /// Native views (text fields) live above the layer tree, so they leave with their node explicitly.
     func detachNativeViews() {
         for child in children { child.detachNativeViews() }
     }
+
+    /// After this node's frame is set and before its children's: native views get mounted here.
+    func didApplyFrame() {}
 
     /// Removes the node, playing `exit` first if it has one. The node leaves the layout immediately;
     /// its layer stays where it was until the animation ends.
@@ -100,9 +109,13 @@ public class Node {
         YGNodeRemoveChild(parent.yoga, yoga)
         self.parent = nil
         parent.invalidate()
-        play(exit: exit) { [weak self, layer] in
+        // The fields inside stay up (and keep mirroring the exit) until it ends, even if their own nodes are
+        // destroyed meanwhile; this node may be freed first, so they're held here, not reached through it.
+        let inputs = inputsInSubtree()
+        for input in inputs { input.exitHolds += 1 }
+        play(exit: exit) { [layer] in
             layer.removeFromSuperlayer()
-            self?.detachNativeViews()
+            for input in inputs { input.exitEnded() }
             completion()
         }
     }
@@ -171,7 +184,10 @@ public class Node {
     /// After layout gave the layer new bounds (shapes refit their path here).
     func boundsDidChange() {}
 
+    /// Animations that reach text fields (`enter`, layout moves) start after the children ran, so fields mounted in
+    /// this same pass are already there to mirror them.
     func applyFrames() {
+        var mirrored: (() -> Void)?
         if YGNodeGetHasNewLayout(yoga) {
             let previous = hasLaidOut ? layoutFrame : nil
             layoutFrame = CGRect(
@@ -181,17 +197,25 @@ public class Node {
                 height: CGFloat(YGNodeLayoutGetHeight(yoga))
             )
             YGNodeSetHasNewLayout(yoga, false)
-            updateGeometry(animatingFrom: previous)
-            if !hasLaidOut {
-                hasLaidOut = true
-                if let enter { play(enter: enter) }
+            let moved = updateGeometry(animatingFrom: previous)
+            let entering = hasLaidOut ? nil : enter
+            hasLaidOut = true
+            if moved != nil || entering != nil {
+                mirrored = { [self] in
+                    if let (from, timing) = moved { mirrorLayout(from: from, timing: timing) }
+                    if let entering { play(enter: entering) }
+                }
             }
         }
+        didApplyFrame()
         for child in children { child.applyFrames() }
+        mirrored?()
     }
 
     /// Bounds and position rather than `frame`, which is undefined once the layer has a transform.
-    private func updateGeometry(animatingFrom previous: CGRect?) {
+    /// Returns the layout move still to mirror onto text fields, if it animated.
+    @discardableResult
+    private func updateGeometry(animatingFrom previous: CGRect?) -> (CGRect, Timing)? {
         let oldBounds = layer.presentation()?.bounds ?? layer.bounds
         let oldPosition = layer.presentation()?.position ?? layer.position
         layer.anchorPoint = CGPoint(x: style.originX, y: style.originY)
@@ -204,8 +228,7 @@ public class Node {
         let oldShadowPath = layer.presentation()?.shadowPath ?? layer.shadowPath
         updateShadowPath()
         if oldBounds.size != layer.bounds.size { boundsDidChange() }
-        guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return }
-        mirrorLayout(from: previous, timing: timing)
+        guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return nil }
         for (keyPath, from, to) in [
             ("position", NSValue(point: oldPosition), NSValue(point: layer.position)),
             ("bounds", NSValue(rect: oldBounds), NSValue(rect: layer.bounds)),
@@ -216,6 +239,7 @@ public class Node {
             add(animation, forKey: "layout.\(keyPath)")
         }
         animateShadowPath(from: oldShadowPath, timing: timing, key: "layout.shadowPath")
+        return (previous, timing)
     }
 
     private func applyPaint(from old: Style?) {
