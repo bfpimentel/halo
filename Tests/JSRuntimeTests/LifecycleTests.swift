@@ -88,8 +88,8 @@ struct LifecycleTests {
         #expect(entry.surface.frame.size == CGSize(width: 140, height: 78))
         #expect(entry.surface.frame.minX == CGFloat(1512 - 140) / 2)
 
-        #expect(!runtime.isSolid(entry, at: CGPoint(x: 5, y: 5)))
-        #expect(runtime.isSolid(entry, at: CGPoint(x: 30, y: 30)))
+        #expect(!runtime.isSolid(entry.root.hitPath(at: CGPoint(x: 5, y: 5))))
+        #expect(runtime.isSolid(entry.root.hitPath(at: CGPoint(x: 30, y: 30))))
         runtime.dispose()
     }
 

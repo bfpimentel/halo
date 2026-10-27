@@ -91,8 +91,8 @@ struct DragTests {
     @Test func dropZonesAndDraggableItemsCatchThePointer() throws {
         let (runtime, _) = try load()
         let entry = try #require(runtime.surfaces.values.first)
-        #expect(runtime.isSolid(entry, at: CGPoint(x: 40, y: 50)), "an unpainted drop zone still takes the drop")
-        #expect(runtime.isSolid(entry, at: CGPoint(x: 150, y: 50)))
+        #expect(runtime.isSolid(entry.root.hitPath(at: CGPoint(x: 40, y: 50))), "an unpainted drop zone still takes the drop")
+        #expect(runtime.isSolid(entry.root.hitPath(at: CGPoint(x: 150, y: 50))))
         #expect(runtime.dispose() == .zero)
     }
 

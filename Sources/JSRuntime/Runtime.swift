@@ -79,6 +79,13 @@ public final class Runtime {
     var listeners: [Int: Set<String>] = [:]
     var mouseMonitors: [Any] = []
     var pointerMonitors: [Any] = []
+    var pointerCheckQueued = false
+    var coverCheck: Timer?
+    /// Top-left global coordinates; tests replace it.
+    var pointerLocation: @MainActor () -> CGPoint = {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        return Geometry.appKitToTopLeft(CGRect(origin: NSEvent.mouseLocation, size: .zero), primaryHeight: primaryHeight).origin
+    }
     var placingAttached: Set<Int> = []
     var serviceEntries: [String: ServiceEntry] = [:]
     var serviceSubscriptions: [Int: String] = [:]
@@ -330,7 +337,7 @@ public final class Runtime {
         }
         placeAttached(to: entry)
         guard entry.shown, entry.config.input != .passthrough else { return }
-        pointerMoved()
+        checkPointerSoon()
     }
 
     /// Popups anchored inside `entry` follow it. Placing one lays out `entry` again, so each is guarded while placed.

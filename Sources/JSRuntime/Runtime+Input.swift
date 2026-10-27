@@ -258,22 +258,32 @@ extension Runtime {
     }
 
     /// Placing and destroying surfaces happens inside JS effects: hover handlers run after them, not in the middle.
+    /// Several requests in one main-queue turn (layouts, placements) share one check.
     func checkPointerSoon() {
+        guard !pointerCheckQueued else { return }
+        pointerCheckQueued = true
         DispatchQueue.main.async { [weak self] in
-            MainActor.assumeIsolated { self?.pointerMoved() }
+            MainActor.assumeIsolated {
+                self?.pointerCheckQueued = false
+                self?.pointerMoved()
+            }
         }
     }
 
     func stopPointerMonitors() {
         for monitor in pointerMonitors { NSEvent.removeMonitor(monitor) }
         pointerMonitors.removeAll()
+        coverCheck?.invalidate()
+        coverCheck = nil
     }
 
     /// Hover follows these monitors too: halo is never the active app, so its panels see only a few of the
     /// pointer's moves (and none at the screen's top edge, where the menu bar takes them).
-    func pointerMoved() {
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        let point = Geometry.appKitToTopLeft(CGRect(origin: NSEvent.mouseLocation, size: .zero), primaryHeight: primaryHeight).origin
+    /// Whether another window covers the surface is asked only when the hovered set would change (each call lists
+    /// every window), and once more after the pointer settles on an unchanged one.
+    func pointerMoved(recheckCovered: Bool = false) {
+        let point = pointerLocation()
+        var settling = false
         for entry in surfaces.values {
             let frame = entry.surface.frame
             guard entry.shown, entry.config.input != .passthrough, frame.contains(point) else {
@@ -288,15 +298,19 @@ extension Runtime {
             }
             let ids = transparent ? [] : path.compactMap { nodeIDs[ObjectIdentifier($0)] }
             let hovered = Set(ids.filter { listeners[$0]?.contains("hover") == true })
+            if !hovered.isEmpty, hovered == entry.hovered, !recheckCovered {
+                settling = true
+                continue
+            }
             updateHover(hovered.isEmpty || entry.surface.isCovered(at: point) ? [] : hovered, in: entry)
         }
+        coverCheck?.invalidate()
+        coverCheck = settling ? Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pointerMoved(recheckCovered: true) }
+        } : nil
     }
 
     /// Painted nodes, draggable ones and ones with listeners (drop zones included) catch the pointer.
-    func isSolid(_ entry: SurfaceEntry, at point: CGPoint) -> Bool {
-        isSolid(entry.root.hitPath(at: point))
-    }
-
     func isSolid(_ path: [Node]) -> Bool {
         path.contains { node in
             node.paintsContent || nodeIDs[ObjectIdentifier(node)].map { listeners[$0] != nil || draggables[$0] != nil } == true
