@@ -72,6 +72,8 @@ public struct Style: Equatable {
     public var borderColor: CGColor?
     public var borderWidth: CGFloat
     public var radius: CGFloat
+    /// Children draw (and are hit) only inside the node's rounded shape.
+    public var clip: Bool
     public var opacity: Float
     public var scale: CGFloat
     /// Degrees, clockwise.
@@ -101,6 +103,7 @@ public struct Style: Equatable {
         borderColor: CGColor? = nil,
         borderWidth: CGFloat = 0,
         radius: CGFloat = 0,
+        clip: Bool = false,
         opacity: Float = 1,
         scale: CGFloat = 1,
         rotate: CGFloat = 0,
@@ -127,6 +130,7 @@ public struct Style: Equatable {
         self.borderColor = borderColor
         self.borderWidth = borderWidth
         self.radius = radius
+        self.clip = clip
         self.opacity = opacity
         self.scale = scale
         self.rotate = rotate

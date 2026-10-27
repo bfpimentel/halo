@@ -47,6 +47,15 @@ parent's edges with `top`, `right`, `bottom` and `left` (points or `"50%"`). Set
 
 Later siblings draw on top. A badge can hang outside its parent (`top: -4, right: -4`) and still gets clicks there.
 
+### Clipping
+
+Nothing clips by default. `clip: true` draws a box's children only inside its rounded shape, and clicks outside it
+pass them by. Use it when a box animates its size while its content stays laid out at the final size:
+
+<video src="../assets/clip.mp4" autoplay loop muted playsinline aria-label="Two cards spring between short and tall; the unclipped one lets its rows hang out, the clipped one cuts them at its edge"></video>
+
+`<Input>` is a native field drawn above the surface, so a clipping ancestor doesn't cut it.
+
 ## Text
 
 Box style plus `color`, `fontSize`, `fontWeight` (`"medium"`, `"bold"`, 100–900), `fontFamily`, `lines` (1 by

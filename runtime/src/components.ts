@@ -76,6 +76,8 @@ export interface BoxStyle {
   borderColor?: Color;
   borderWidth?: number;
   radius?: number;
+  /** Draw children only inside this box's rounded shape; clipped-away parts aren't hit either. */
+  clip?: boolean;
   opacity?: number;
   scale?: number;
   /** Degrees, clockwise. */

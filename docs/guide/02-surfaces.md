@@ -33,7 +33,8 @@ A `<Surface>` is a window. Its child fills it.
 | `input` | `passthrough` (default), `hover`, `interactive` (clicks), `keyboard` (clicks + typing).          |
 
 Empty parts of an interactive surface let clicks through. Widgets never activate halo: your app keeps focus, even
-while you type into a `keyboard` surface.
+while you type into a `keyboard` surface. A `keyboard` surface takes key focus when it appears and when a shown
+surface's `input` switches to `keyboard`; switching away hands the keys back.
 
 ## One per display
 

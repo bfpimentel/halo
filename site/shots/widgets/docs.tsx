@@ -221,6 +221,37 @@ function Overlays() {
   );
 }
 
+function Clips() {
+  const open = signal(false);
+  every(1000, (tick) => open.set(tick % 2 === 1));
+  const column = (clip: boolean) => (
+    <Box style={{ gap: 8, width: 120 }}>
+      {label(clip ? "clip: true" : "clip: false")}
+      <Box
+        style={{
+          height: () => (open() ? 130 : 44),
+          padding: 8,
+          gap: 6,
+          background: surface,
+          radius: 12,
+          clip,
+          transition: { layout: { curve: "spring" } },
+        }}
+      >
+        {[accent, green, yellow, pink].map((color) => (
+          <Box style={{ height: 24, background: color, radius: 6, opacity: 0.85 }} />
+        ))}
+      </Box>
+    </Box>
+  );
+  return (
+    <Box style={{ flexDirection: "row", gap: 20, height: 170 }}>
+      {column(false)}
+      {column(true)}
+    </Box>
+  );
+}
+
 function Texts() {
   return (
     <Card width={300} gap={8}>
@@ -670,6 +701,9 @@ export default function DocShots({ screen }: WidgetProps) {
       </Shot>
       <Shot name="overlay" screen={screen} top={300} left={1300}>
         <Overlays />
+      </Shot>
+      <Shot name="clip@4" screen={screen} top={700} left={60}>
+        <Clips />
       </Shot>
       <Shot name="text" screen={screen} top={60} left={1800}>
         <Texts />

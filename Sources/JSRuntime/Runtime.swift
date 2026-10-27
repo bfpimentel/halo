@@ -233,7 +233,8 @@ public final class Runtime {
         return nextID
     }
 
-    /// Applies config, host visibility and popup attachment; focuses keyboard surfaces as they appear.
+    /// Applies config, host visibility and popup attachment; focuses keyboard surfaces as they appear or as a shown
+    /// surface's input becomes `keyboard`.
     func place(_ entry: SurfaceEntry) {
         var config = entry.config
         let edges = config.anchor
@@ -282,6 +283,7 @@ public final class Runtime {
             entry.root.node.clearExit()
         }
         let moved = entry.surface.frame
+        let becameKeyboard = config.input == .keyboard && entry.surface.config.input != .keyboard
         entry.surface.update(config, screen: screen, frame: frame)
         entry.root.size = entry.surface.frame.size
         entry.root.contentsScale = screen.scale
@@ -290,7 +292,10 @@ public final class Runtime {
         let changed = config.visible != entry.shown
         entry.shown = config.visible
         if changed { updatePointerMonitors() }
-        guard appeared else { return }
+        guard appeared else {
+            if becameKeyboard, config.visible { entry.surface.focus() }
+            return
+        }
         // A surface that shows up catches the pointer until the next pointer check says otherwise: a stale
         // click-through state must never let a fresh drop zone pass a drop to the app underneath.
         entry.mouseTransparent = false

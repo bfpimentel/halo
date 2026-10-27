@@ -219,7 +219,12 @@ final class PanelSurface: BackendSurface {
         panel.ignoresMouseEvents = input == .passthrough
         panel.acceptsMouseMovedEvents = input != .passthrough
         panel.acceptsKey = input == .keyboard
-        if input != .keyboard, panel.isKeyWindow { panel.resignKey() }
+        // `resignKey()` only posts the notification: AppKit keeps the panel as `NSApp.keyWindow`, so a later
+        // `makeKey` does nothing. Ordering it out really gives up key status.
+        if input != .keyboard, panel.isKeyWindow {
+            panel.orderOut(nil)
+            panel.orderFrontRegardless()
+        }
     }
 
     func setMouseTransparent(_ transparent: Bool) {

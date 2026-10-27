@@ -101,6 +101,23 @@ import Testing
         #expect(ids(root.hitPath(at: CGPoint(x: 30, y: 30))) == ids([icon, wrapper, row]))
     }
 
+    @Test func clippedChildrenAreOnlyHitInsideTheRoundedShape() {
+        let fill = Box(style: Style(width: .points(40), height: .points(40)))
+        let badge = Box(style: Style(width: .points(10), height: .points(10), position: .absolute, top: .points(-5), right: .points(-5)))
+        let card = Box(style: Style(width: .points(40), height: .points(40), radius: 10, clip: true), children: [fill, badge])
+        let row = Box(style: Style(flexDirection: .row, padding: Spacing(20)), children: [card])
+        let root = mount(row, size: CGSize(width: 200, height: 200))
+
+        let ids = { (nodes: [Node]) in nodes.map(ObjectIdentifier.init) }
+        #expect(ids(root.hitPath(at: CGPoint(x: 40, y: 40))) == ids([fill, card, row]))
+        #expect(ids(root.hitPath(at: CGPoint(x: 62, y: 17))) == ids([row]), "the overhang is clipped away")
+        #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 21))) == ids([row]), "outside the rounded corner")
+        #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 40))) == ids([fill, card, row]), "inside, along the straight edge")
+
+        card.style.clip = false
+        #expect(ids(root.hitPath(at: CGPoint(x: 62, y: 17))) == ids([badge, card, row]))
+    }
+
     @Test func hitTestingFollowsTransforms() {
         let target = Box(style: Style(width: .points(20), height: .points(20)))
         let row = Box(style: Style(flexDirection: .row, padding: Spacing(left: 40)), children: [target])

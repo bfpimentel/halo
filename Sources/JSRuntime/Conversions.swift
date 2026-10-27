@@ -86,6 +86,8 @@ enum Conversions {
             node.style.borderWidth = number(value) ?? defaults.borderWidth
         case "radius":
             node.style.radius = number(value) ?? defaults.radius
+        case "clip":
+            node.style.clip = value.toBool()
         case "opacity":
             node.style.opacity = Float(number(value) ?? CGFloat(defaults.opacity))
         case "scale":

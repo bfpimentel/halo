@@ -120,12 +120,20 @@ public class Node {
     /// the parent (an absolutely positioned badge hanging over an icon's corner).
     public func hitPath(at point: CGPoint) -> [Node] {
         guard layer.opacity > 0 else { return [] }
+        if style.clip, !outline.contains(point) { return [] }
         for child in children.reversed() {
             let local = child.layer.convert(point, from: layer)
             let path = child.hitPath(at: local)
             if !path.isEmpty { return path + [self] }
         }
         return layer.bounds.contains(point) ? [self] : []
+    }
+
+    /// The node's rounded shape in its own coordinates.
+    var outline: CGPath {
+        let bounds = layer.bounds
+        let radius = min(style.radius, bounds.width / 2, bounds.height / 2)
+        return CGPath(roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
     /// Whether the node draws anything at its frame (empty layout containers don't, so they let clicks through).
@@ -199,6 +207,7 @@ public class Node {
         layer.borderWidth = style.borderWidth
         layer.cornerRadius = style.radius
         layer.cornerCurve = .continuous
+        layer.masksToBounds = style.clip
         layer.opacity = style.opacity
         layer.transform = style.transform
         if let old, old.originX != style.originX || old.originY != style.originY { updateGeometry(animatingFrom: nil) }
