@@ -76,6 +76,17 @@ export interface BoxStyle {
   borderColor?: Color;
   borderWidth?: number;
   radius?: number;
+  /** The corners `radius` rounds (all by default); the others stay square. */
+  corners?: ("topLeft" | "topRight" | "bottomRight" | "bottomLeft")[];
+  /** Cast by the box's rounded shape, outside it. Keep room for it in the surface: nothing draws past its edges. */
+  shadow?: {
+    color: Color;
+    /** Blur radius in points. */
+    blur?: number;
+    /** Offset in points; positive `y` is down. */
+    x?: number;
+    y?: number;
+  };
   /** Draw children only inside this box's rounded shape; clipped-away parts aren't hit either. */
   clip?: boolean;
   opacity?: number;

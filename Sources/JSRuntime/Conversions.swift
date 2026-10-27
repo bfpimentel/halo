@@ -86,6 +86,10 @@ enum Conversions {
             node.style.borderWidth = number(value) ?? defaults.borderWidth
         case "radius":
             node.style.radius = number(value) ?? defaults.radius
+        case "corners":
+            node.style.corners = corners(value) ?? defaults.corners
+        case "shadow":
+            node.style.shadow = shadow(value)
         case "clip":
             node.style.clip = value.toBool()
         case "opacity":
@@ -265,6 +269,27 @@ enum Conversions {
     private static func strings(_ value: JSValue?) -> [String]? {
         guard let value, value.isArray else { return nil }
         return value.toArray().compactMap { $0 as? String }
+    }
+
+    private static func shadow(_ value: JSValue) -> Shadow? {
+        guard value.isObject, let color = value.forProperty("color").flatMap(color) else { return nil }
+        return Shadow(
+            color: color,
+            blur: number(value.forProperty("blur")) ?? 0,
+            x: number(value.forProperty("x")) ?? 0,
+            y: number(value.forProperty("y")) ?? 0
+        )
+    }
+
+    private static func corners(_ value: JSValue) -> Corners? {
+        guard let names = strings(value) else { return nil }
+        let named: [String: Corners] = [
+            "topLeft": .topLeft, "topRight": .topRight, "bottomRight": .bottomRight, "bottomLeft": .bottomLeft,
+        ]
+        return names.reduce(into: Corners()) { corners, name in
+            guard let corner = named[name] else { return Log.warn("unknown corner \"\(name)\"") }
+            corners.insert(corner)
+        }
     }
 
     private static func spacing(_ value: JSValue) -> Spacing? {

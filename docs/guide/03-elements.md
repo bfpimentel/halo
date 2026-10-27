@@ -24,10 +24,20 @@ element takes a `style` object whose values can be signals.
 ## Box
 
 A container. Layout: `flexDirection`, `justify`, `align`, `padding`, `gap`, `width`, `height`, `grow`, `shrink`.
-Paint: `background`, `borderColor`, `borderWidth`, `radius`, `opacity`. Transforms: `scale`, `rotate`, `translateX`,
-`translateY`, `origin`. Colors are `#rgb`, `#rrggbb` or `#rrggbbaa`.
+Paint: `background`, `borderColor`, `borderWidth`, `radius`, `corners`, `shadow`, `opacity`, `clip`. Transforms:
+`scale`, `rotate`, `translateX`, `translateY`, `origin`. Colors are `#rgb`, `#rrggbb` or `#rrggbbaa`.
 
 ![Box paint and transform properties, and a row of growing boxes](../assets/box.png)
+
+`radius` rounds every corner unless `corners` names some: `corners: ["bottomLeft", "bottomRight"]` keeps the top
+square. All rounded corners share the one `radius`.
+
+![Boxes rounded at the bottom, the top, two opposite corners and one corner](../assets/corners.png)
+
+`shadow: { color, blur, x, y }` casts a shadow from the box's rounded shape (its children cast none); positive `y` is
+down. A surface draws nothing past its edges, so leave padding around a shadowed box.
+
+![A soft shadow, an offset colored shadow, a shadow under bottom-only corners and one under a clipped box](../assets/shadow.png)
 
 ### Overlays
 

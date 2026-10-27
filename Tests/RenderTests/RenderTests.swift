@@ -114,6 +114,10 @@ import Testing
         #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 21))) == ids([row]), "outside the rounded corner")
         #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 40))) == ids([fill, card, row]), "inside, along the straight edge")
 
+        card.style.corners = [.bottomLeft, .bottomRight]
+        #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 21))) == ids([fill, card, row]), "a square top corner")
+        #expect(ids(root.hitPath(at: CGPoint(x: 21, y: 59))) == ids([row]), "still outside a rounded bottom corner")
+
         card.style.clip = false
         #expect(ids(root.hitPath(at: CGPoint(x: 62, y: 17))) == ids([badge, card, row]))
     }

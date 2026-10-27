@@ -4,6 +4,10 @@ import yoga
 @MainActor
 public class Node {
     public let layer: CALayer
+    /// With `clip`, children live in this layer instead: it masks them to the node's shape, while `layer` keeps
+    /// drawing the background, border and a shadow the mask would cut off.
+    private var clipLayer: CALayer?
+    private var childHost: CALayer { clipLayer ?? layer }
     let yoga: YGNodeRef
     public private(set) var children: [Node] = []
     public private(set) weak var parent: Node?
@@ -64,7 +68,7 @@ public class Node {
         child.parent = self
         child.contentsScale = contentsScale
         YGNodeInsertChild(yoga, child.yoga, index)
-        layer.insertSublayer(child.layer, at: UInt32(index))
+        childHost.insertSublayer(child.layer, at: UInt32(index))
         invalidate()
     }
 
@@ -131,9 +135,18 @@ public class Node {
 
     /// The node's rounded shape in its own coordinates.
     var outline: CGPath {
-        let bounds = layer.bounds
-        let radius = min(style.radius, bounds.width / 2, bounds.height / 2)
-        return CGPath(roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        let b = layer.bounds
+        let r = min(style.radius, b.width / 2, b.height / 2)
+        let corners = style.corners
+        let radius = { (corner: Corners) in corners.contains(corner) ? r : 0 }
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: b.minX + radius(.topLeft), y: b.minY))
+        path.addArc(tangent1End: CGPoint(x: b.maxX, y: b.minY), tangent2End: CGPoint(x: b.maxX, y: b.maxY), radius: radius(.topRight))
+        path.addArc(tangent1End: CGPoint(x: b.maxX, y: b.maxY), tangent2End: CGPoint(x: b.minX, y: b.maxY), radius: radius(.bottomRight))
+        path.addArc(tangent1End: CGPoint(x: b.minX, y: b.maxY), tangent2End: CGPoint(x: b.minX, y: b.minY), radius: radius(.bottomLeft))
+        path.addArc(tangent1End: CGPoint(x: b.minX, y: b.minY), tangent2End: CGPoint(x: b.maxX, y: b.minY), radius: radius(.topLeft))
+        path.closeSubpath()
+        return path
     }
 
     /// Whether the node draws anything at its frame (empty layout containers don't, so they let clicks through).
@@ -187,6 +200,9 @@ public class Node {
             x: layoutFrame.minX + layoutFrame.width * style.originX,
             y: layoutFrame.minY + layoutFrame.height * style.originY
         )
+        clipLayer?.bounds = layer.bounds
+        let oldShadowPath = layer.presentation()?.shadowPath ?? layer.shadowPath
+        updateShadowPath()
         if oldBounds.size != layer.bounds.size { boundsDidChange() }
         guard let timing = transitions["layout"], let previous, previous != layoutFrame else { return }
         mirrorLayout(from: previous, timing: timing)
@@ -197,8 +213,9 @@ public class Node {
             let animation = timing.basic(keyPath)
             animation.fromValue = from
             animation.toValue = to
-            layer.add(animation, forKey: "layout.\(keyPath)")
+            add(animation, forKey: "layout.\(keyPath)")
         }
+        animateShadowPath(from: oldShadowPath, timing: timing, key: "layout.shadowPath")
     }
 
     private func applyPaint(from old: Style?) {
@@ -206,8 +223,19 @@ public class Node {
         layer.borderColor = style.borderColor
         layer.borderWidth = style.borderWidth
         layer.cornerRadius = style.radius
+        layer.maskedCorners = style.corners.layerMask
         layer.cornerCurve = .continuous
-        layer.masksToBounds = style.clip
+        updateClip()
+        if let shadow = style.shadow {
+            layer.shadowColor = shadow.color
+            layer.shadowOpacity = 1
+            layer.shadowRadius = shadow.blur
+            layer.shadowOffset = CGSize(width: shadow.x, height: shadow.y)
+        } else {
+            layer.shadowOpacity = 0
+        }
+        let oldShadowPath = layer.presentation()?.shadowPath ?? layer.shadowPath
+        updateShadowPath()
         layer.opacity = style.opacity
         layer.transform = style.transform
         if let old, old.originX != style.originX || old.originY != style.originY { updateGeometry(animatingFrom: nil) }
@@ -223,7 +251,8 @@ public class Node {
             let animation = timing.basic(property.keyPath)
             animation.fromValue = layer.presentation()?.value(forKeyPath: property.keyPath) ?? from.layerValue(for: property)
             animation.toValue = to.layerValue(for: property)
-            layer.add(animation, forKey: property.rawValue)
+            add(animation, forKey: property.rawValue)
+            if property == .radius { animateShadowPath(from: oldShadowPath, timing: timing, key: "radius.shadowPath") }
 
             if let start = presented(property) ?? number(property, in: old), let end = number(property, in: style) {
                 curves[property] = Self.curves([property: (start, end)], timing: timing.delayed())[property]
@@ -240,7 +269,7 @@ public class Node {
             let animation = enter.timing.basic(property.keyPath)
             animation.fromValue = from.layerValue(for: property)
             animation.toValue = property.value(in: style).layerValue(for: property)
-            layer.add(animation, forKey: "enter.\(property.rawValue)")
+            add(animation, forKey: "enter.\(property.rawValue)")
             if case .number(let start) = from, let end = number(property, in: style) { endpoints[property] = (start, end) }
         }
         let length = enter.timing.delay + enter.timing.length
@@ -259,7 +288,7 @@ public class Node {
             animation.toValue = to.layerValue(for: property)
             animation.fillMode = .forwards
             animation.isRemovedOnCompletion = false
-            layer.add(animation, forKey: "exit.\(property.rawValue)")
+            add(animation, forKey: "exit.\(property.rawValue)")
             if case .number(let end) = to, let start = presented(property) ?? number(property, in: style) {
                 endpoints[property] = (start, end)
             }
@@ -274,7 +303,7 @@ public class Node {
 
     /// Drops held exit frames so the layer shows its style again (e.g. a surface shown after hiding).
     public func clearExit() {
-        for property in AnimatedProperty.allCases { layer.removeAnimation(forKey: "exit.\(property.rawValue)") }
+        for property in AnimatedProperty.allCases { removeAnimation(forKey: "exit.\(property.rawValue)") }
         removeMirror("mirror.exit")
     }
 
@@ -284,14 +313,61 @@ public class Node {
         let key = "keyframes.\(UUID().uuidString)"
         let group = keyframes.animation()
         group.delegate = AnimationCompletion(completion)
-        layer.add(group, forKey: key)
+        add(group, forKey: key)
         mirror(keyframes.mirrored(), key: "mirror.\(key)")
         return key
     }
 
     public func cancelAnimation(_ key: String) {
-        layer.removeAnimation(forKey: key)
+        removeAnimation(forKey: key)
         removeMirror("mirror.\(key)")
+    }
+
+    /// The clip layer follows the node's size and corners, animations included.
+    private func add(_ animation: CAAnimation, forKey key: String) {
+        layer.add(animation, forKey: key)
+        if let clipLayer, let shared = animation.sharedWithClip() { clipLayer.add(shared, forKey: key) }
+    }
+
+    private func removeAnimation(forKey key: String) {
+        layer.removeAnimation(forKey: key)
+        clipLayer?.removeAnimation(forKey: key)
+    }
+
+    private func updateClip() {
+        if style.clip, clipLayer == nil {
+            let clip = CALayer()
+            clip.delegate = NoImplicitActions.shared
+            clip.masksToBounds = true
+            clip.anchorPoint = .zero
+            clip.position = .zero
+            clip.contentsScale = contentsScale
+            for child in children { clip.addSublayer(child.layer) }
+            layer.addSublayer(clip)
+            clipLayer = clip
+        } else if !style.clip, let clip = clipLayer {
+            for child in children { layer.addSublayer(child.layer) }
+            clip.removeFromSuperlayer()
+            clipLayer = nil
+        }
+        clipLayer?.bounds = layer.bounds
+        clipLayer?.cornerRadius = style.radius
+        clipLayer?.maskedCorners = style.corners.layerMask
+        clipLayer?.cornerCurve = .continuous
+    }
+
+    /// A shadow path keeps the shadow to the node's shape (its children cast none) and spares Core Animation an
+    /// offscreen pass.
+    private func updateShadowPath() {
+        layer.shadowPath = style.shadow == nil ? nil : outline
+    }
+
+    private func animateShadowPath(from old: CGPath?, timing: Timing, key: String) {
+        guard let old, let new = layer.shadowPath, old != new else { return }
+        let animation = timing.basic("shadowPath")
+        animation.fromValue = old
+        animation.toValue = new
+        layer.add(animation, forKey: key)
     }
 
     /// Yoga only marks the node dirty for values that actually changed.
@@ -333,6 +409,25 @@ public final class Box: Node {
     public init(style: Style = Style(), children: [Node] = []) {
         super.init(layer: CALayer(), style: style)
         for child in children { append(child) }
+    }
+}
+
+private extension CAAnimation {
+    /// The part of a node animation its clip layer plays too (size and corners), without the completion delegate.
+    func sharedWithClip() -> CAAnimation? {
+        if let property = self as? CAPropertyAnimation {
+            guard ["bounds", "cornerRadius"].contains(property.keyPath) else { return nil }
+            let copy = property.copy() as? CAAnimation
+            copy?.delegate = nil
+            return copy
+        }
+        guard let group = self as? CAAnimationGroup,
+              let shared = group.animations?.compactMap({ $0.sharedWithClip() }), !shared.isEmpty,
+              let copy = group.copy() as? CAAnimationGroup
+        else { return nil }
+        copy.animations = shared
+        copy.delegate = nil
+        return copy
     }
 }
 

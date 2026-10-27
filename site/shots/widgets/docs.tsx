@@ -14,6 +14,7 @@ import {
   ring,
   sparkline,
   tween,
+  type BoxStyle,
   type NativeNode,
   type ScreenInfo,
   type WidgetProps,
@@ -218,6 +219,51 @@ function Overlays() {
         </Box>
       </Box>
     </Card>
+  );
+}
+
+function Corners() {
+  const tile = (corners: BoxStyle["corners"], name: string, color: string) => (
+    <Box style={{ gap: 6, align: "center" }}>
+      <Box style={{ width: 64, height: 44, radius: 16, corners, background: color }} />
+      {label(name)}
+    </Box>
+  );
+  return (
+    <Card>
+      <Box style={{ flexDirection: "row", gap: 16 }}>
+        {tile(["bottomLeft", "bottomRight"], "bottom", accent)}
+        {tile(["topLeft", "topRight"], "top", green)}
+        {tile(["topLeft", "bottomRight"], "diagonal", yellow)}
+        {tile(["topRight"], "one", pink)}
+      </Box>
+    </Card>
+  );
+}
+
+function Shadows() {
+  const tile = (name: string, style: BoxStyle, children?: unknown) => (
+    <Box style={{ gap: 10, align: "center" }}>
+      <Box style={{ width: 72, height: 52, radius: 14, background: surface, ...style }}>
+        {children as never}
+      </Box>
+      {label(name)}
+    </Box>
+  );
+  return (
+    <Box style={{ flexDirection: "row", gap: 28, padding: 28 }}>
+      {tile("soft", { shadow: { color: "#000000aa", blur: 16, y: 6 } })}
+      {tile("offset", { shadow: { color: "#89b4fa88", blur: 4, x: 6, y: 6 } })}
+      {tile("bottom corners", {
+        corners: ["bottomLeft", "bottomRight"],
+        shadow: { color: "#000000aa", blur: 12, y: 4 },
+      })}
+      {tile(
+        "with clip",
+        { clip: true, padding: 8, shadow: { color: "#000000aa", blur: 12, y: 4 } },
+        <Box style={{ height: 70, background: yellow, radius: 6 }} />,
+      )}
+    </Box>
   );
 }
 
@@ -701,6 +747,12 @@ export default function DocShots({ screen }: WidgetProps) {
       </Shot>
       <Shot name="overlay" screen={screen} top={300} left={1300}>
         <Overlays />
+      </Shot>
+      <Shot name="corners" screen={screen} top={400} left={1000}>
+        <Corners />
+      </Shot>
+      <Shot name="shadow" screen={screen} top={240} left={60}>
+        <Shadows />
       </Shot>
       <Shot name="clip@4" screen={screen} top={700} left={60}>
         <Clips />

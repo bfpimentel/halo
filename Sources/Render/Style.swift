@@ -49,6 +49,44 @@ public struct Spacing: Hashable, Sendable {
     public static let zero = Spacing()
 }
 
+/// Cast by the node's rounded shape, not by its children.
+public struct Shadow: Equatable, @unchecked Sendable {
+    public var color: CGColor
+    public var blur: CGFloat
+    /// Offset in points; positive `y` is down.
+    public var x: CGFloat
+    public var y: CGFloat
+
+    public init(color: CGColor, blur: CGFloat = 0, x: CGFloat = 0, y: CGFloat = 0) {
+        self.color = color
+        self.blur = blur
+        self.x = x
+        self.y = y
+    }
+}
+
+/// Top-left coordinates: `topLeft` is the corner at the node's origin.
+public struct Corners: OptionSet, Hashable, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    public static let topLeft = Corners(rawValue: 1)
+    public static let topRight = Corners(rawValue: 2)
+    public static let bottomRight = Corners(rawValue: 4)
+    public static let bottomLeft = Corners(rawValue: 8)
+    public static let all: Corners = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+
+    /// Layers under the flipped content view are top-left too, so min Y is the top edge.
+    var layerMask: CACornerMask {
+        var mask: CACornerMask = []
+        if contains(.topLeft) { mask.insert(.layerMinXMinYCorner) }
+        if contains(.topRight) { mask.insert(.layerMaxXMinYCorner) }
+        if contains(.bottomRight) { mask.insert(.layerMaxXMaxYCorner) }
+        if contains(.bottomLeft) { mask.insert(.layerMinXMaxYCorner) }
+        return mask
+    }
+}
+
 /// Layout fields go to Yoga; paint fields go straight to the layer and never trigger layout.
 public struct Style: Equatable {
     public var flexDirection: FlexDirection
@@ -72,8 +110,11 @@ public struct Style: Equatable {
     public var borderColor: CGColor?
     public var borderWidth: CGFloat
     public var radius: CGFloat
+    /// The corners `radius` rounds; the rest stay square.
+    public var corners: Corners
     /// Children draw (and are hit) only inside the node's rounded shape.
     public var clip: Bool
+    public var shadow: Shadow?
     public var opacity: Float
     public var scale: CGFloat
     /// Degrees, clockwise.
@@ -103,7 +144,9 @@ public struct Style: Equatable {
         borderColor: CGColor? = nil,
         borderWidth: CGFloat = 0,
         radius: CGFloat = 0,
+        corners: Corners = .all,
         clip: Bool = false,
+        shadow: Shadow? = nil,
         opacity: Float = 1,
         scale: CGFloat = 1,
         rotate: CGFloat = 0,
@@ -130,7 +173,9 @@ public struct Style: Equatable {
         self.borderColor = borderColor
         self.borderWidth = borderWidth
         self.radius = radius
+        self.corners = corners
         self.clip = clip
+        self.shadow = shadow
         self.opacity = opacity
         self.scale = scale
         self.rotate = rotate
