@@ -158,6 +158,7 @@ the field focused.
 
 `onClick`, `onHover`, `onScroll` on Box, Text, Image and Shape. An event goes to the deepest element under the pointer that
 listens for it. The surface needs `input="interactive"` (or `hover` for hover and scroll).
+Hover ends when the surface hides, and never fires under another window (a `desktop` or `belowMenu` widget behind an app).
 
 <video src="../assets/events.mp4" autoplay loop muted playsinline aria-label="A menu: rows highlight on hover and shrink when pressed"></video>
 

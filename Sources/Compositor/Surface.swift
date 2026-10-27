@@ -63,6 +63,10 @@ public final class Surface {
         backing.beginDrag(files: files)
     }
 
+    public func isCovered(at point: CGPoint) -> Bool {
+        backing.isCovered(at: point)
+    }
+
     public func destroy() {
         backing.destroy()
     }

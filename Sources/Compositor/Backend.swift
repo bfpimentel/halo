@@ -21,6 +21,8 @@ public protocol BackendSurface: AnyObject {
     func attach(_ view: NSView)
     /// Starts a native drag of `files` from the mouse-down that's in progress (call it on `.mouseDragged`).
     func beginDrag(files: [String])
+    /// Whether another window is in front of this surface at `point` (top-left global coordinates).
+    func isCovered(at point: CGPoint) -> Bool
     func destroy()
 }
 
@@ -31,6 +33,8 @@ extension BackendSurface {
     }
 
     public func beginDrag(files: [String]) {}
+
+    public func isCovered(at point: CGPoint) -> Bool { false }
 }
 
 @MainActor

@@ -251,6 +251,17 @@ final class PanelSurface: BackendSurface {
         view.beginDrag(files: files)
     }
 
+    /// The window server skips click-through windows and applies click-through changes a few events late, so the
+    /// front window it finds may be one behind this panel: only windows above it in the stacking order count.
+    func isCovered(at point: CGPoint) -> Bool {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let location = Geometry.topLeftToAppKit(CGRect(origin: point, size: .zero), primaryHeight: primaryHeight).origin
+        let front = NSWindow.windowNumber(at: location, belowWindowWithWindowNumber: 0)
+        guard front > 0, front != panel.windowNumber else { return false }
+        let above = CGWindowListCopyWindowInfo([.optionOnScreenAboveWindow], CGWindowID(panel.windowNumber)) as? [[CFString: Any]]
+        return above?.contains { $0[kCGWindowNumber] as? Int == front } == true
+    }
+
     func attach(_ view: NSView) {
         guard view.superview !== self.view else { return }
         self.view.addSubview(view)

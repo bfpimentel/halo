@@ -283,24 +283,32 @@ public final class Runtime {
             entry.root.node.clearExit()
         }
         let moved = entry.surface.frame
-        let becameKeyboard = config.input == .keyboard && entry.surface.config.input != .keyboard
+        let previousInput = entry.surface.config.input
         entry.surface.update(config, screen: screen, frame: frame)
         entry.root.size = entry.surface.frame.size
         entry.root.contentsScale = screen.scale
         if entry.surface.frame != moved { placeAttached(to: entry) }
         let appeared = config.visible && !entry.shown
-        let changed = config.visible != entry.shown
+        let changed = config.visible != entry.shown || config.input != previousInput
         entry.shown = config.visible
-        if changed { updatePointerMonitors() }
         guard appeared else {
-            if becameKeyboard, config.visible { entry.surface.focus() }
+            if config.input != previousInput {
+                // Switching input resets the panel's click-through, so the cache follows before the pointer check.
+                entry.mouseTransparent = config.input == .passthrough
+                if config.visible, config.input == .keyboard { entry.surface.focus() }
+            }
+            if changed {
+                updatePointerMonitors()
+                checkPointerSoon()
+            }
             return
         }
+        updatePointerMonitors()
         // A surface that shows up catches the pointer until the next pointer check says otherwise: a stale
         // click-through state must never let a fresh drop zone pass a drop to the app underneath.
         entry.mouseTransparent = false
         entry.surface.setMouseTransparent(false)
-        pointerMoved()
+        checkPointerSoon()
         if let enter = entry.options.enter {
             entry.root.layoutNow()
             entry.root.node.play(enter: enter)
@@ -323,7 +331,6 @@ public final class Runtime {
         placeAttached(to: entry)
         guard entry.shown, entry.config.input != .passthrough else { return }
         pointerMoved()
-        refreshHover(entry)
     }
 
     /// Popups anchored inside `entry` follow it. Placing one lays out `entry` again, so each is guarded while placed.

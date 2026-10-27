@@ -61,11 +61,8 @@ extension Runtime {
             }
             guard let target = firstListener("click", at: point, in: entry), target == entry.pressed else { return }
             dispatch(target, "click", ["x": point.x, "y": point.y, "button": button == 1 ? "right" : "left", "clicks": clicks])
-        case .mouseMoved(let point):
-            let ids = entry.root.hitPath(at: point).compactMap { nodeIDs[ObjectIdentifier($0)] }
-            updateHover(Set(ids.filter { listeners[$0]?.contains("hover") == true }), in: entry)
-        case .mouseExited:
-            updateHover([], in: entry)
+        case .mouseMoved, .mouseExited:
+            pointerMoved()
         case .scroll(let point, let dx, let dy):
             guard let target = firstListener("scroll", at: point, in: entry) else { return }
             dispatch(target, "scroll", ["dx": dx, "dy": dy])
@@ -257,7 +254,14 @@ extension Runtime {
             return event
         }
         pointerMonitors = [global, local].compactMap { $0 }
-        pointerMoved()
+        checkPointerSoon()
+    }
+
+    /// Placing and destroying surfaces happens inside JS effects: hover handlers run after them, not in the middle.
+    func checkPointerSoon() {
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated { self?.pointerMoved() }
+        }
     }
 
     func stopPointerMonitors() {
@@ -265,38 +269,36 @@ extension Runtime {
         pointerMonitors.removeAll()
     }
 
+    /// Hover follows these monitors too: halo is never the active app, so its panels see only a few of the
+    /// pointer's moves (and none at the screen's top edge, where the menu bar takes them).
     func pointerMoved() {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let point = Geometry.appKitToTopLeft(CGRect(origin: NSEvent.mouseLocation, size: .zero), primaryHeight: primaryHeight).origin
-        for entry in surfaces.values where entry.shown && entry.config.input != .passthrough {
+        for entry in surfaces.values {
             let frame = entry.surface.frame
-            guard frame.contains(point) else { continue }
-            let local = CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
-            let transparent = !isSolid(entry, at: local)
-            guard transparent != entry.mouseTransparent else { continue }
-            entry.mouseTransparent = transparent
-            entry.surface.setMouseTransparent(transparent)
-            if transparent { updateHover([], in: entry) }
+            guard entry.shown, entry.config.input != .passthrough, frame.contains(point) else {
+                if !entry.hovered.isEmpty { updateHover([], in: entry) }
+                continue
+            }
+            let path = entry.root.hitPath(at: CGPoint(x: point.x - frame.minX, y: point.y - frame.minY))
+            let transparent = !isSolid(path)
+            if transparent != entry.mouseTransparent {
+                entry.mouseTransparent = transparent
+                entry.surface.setMouseTransparent(transparent)
+            }
+            let ids = transparent ? [] : path.compactMap { nodeIDs[ObjectIdentifier($0)] }
+            let hovered = Set(ids.filter { listeners[$0]?.contains("hover") == true })
+            updateHover(hovered.isEmpty || entry.surface.isCovered(at: point) ? [] : hovered, in: entry)
         }
-    }
-
-    /// Hover for wherever the pointer is now, without waiting for it to move.
-    func refreshHover(_ entry: SurfaceEntry) {
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        let point = Geometry.appKitToTopLeft(CGRect(origin: NSEvent.mouseLocation, size: .zero), primaryHeight: primaryHeight).origin
-        let frame = entry.surface.frame
-        guard frame.contains(point), !entry.mouseTransparent else {
-            if !entry.hovered.isEmpty { updateHover([], in: entry) }
-            return
-        }
-        let local = CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
-        let ids = entry.root.hitPath(at: local).compactMap { nodeIDs[ObjectIdentifier($0)] }
-        updateHover(Set(ids.filter { listeners[$0]?.contains("hover") == true }), in: entry)
     }
 
     /// Painted nodes, draggable ones and ones with listeners (drop zones included) catch the pointer.
     func isSolid(_ entry: SurfaceEntry, at point: CGPoint) -> Bool {
-        entry.root.hitPath(at: point).contains { node in
+        isSolid(entry.root.hitPath(at: point))
+    }
+
+    func isSolid(_ path: [Node]) -> Bool {
+        path.contains { node in
             node.paintsContent || nodeIDs[ObjectIdentifier(node)].map { listeners[$0] != nil || draggables[$0] != nil } == true
         }
     }
